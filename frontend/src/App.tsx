@@ -178,9 +178,11 @@ export default function App() {
         <div className="action-row"><button className="primary" disabled={!inputRows.length || busy || loading} onClick={() => analyze()}>{busy ? "Analysis in progress…" : results.length ? "Run analysis again" : "Analyze dataset"} <span aria-hidden="true">↗</span></button>
           {busy && <button className="secondary" onClick={() => controller.current?.abort()}>Cancel analysis</button>}
         </div>
-        <p className="baseline-note">{classifierMode === "service" ? "Classification uses Edward's hosted disaster-relevance model through the Worker. Relevance scores are uncalibrated estimates, not verification or severity." : classifierMode === "preview" ? "Classification uses local keyword preview rules until the Worker classifier secret is configured. Scores are heuristic, not measured accuracy." : classifierMode === "unconfigured" ? "The hosted classifier is only partly configured; classification will fail until both the URL and Worker secret are set." : "Classifier status could not be checked; verify the API before relying on these results."} {locationMode === "service" ? "Location matching uses Mutasim's service. Mentioned places are approximate, not verified incident sites." : locationMode === "preview" ? "Place detection uses a limited Alberta gazetteer until a location service is configured." : locationMode === "unconfigured" ? "The location service is only partly configured; location matching will fail until both its URL and Worker secret are set." : "Location service status could not be checked."} Uploaded report text is processed by this Worker and, when configured, forwarded to those services. Other places may remain unmapped. Refreshing clears this session.</p>
+        <p className="baseline-note">Export your results before refreshing; this session is not saved.</p>
+        <details className="baseline-note"><summary>How your data is used</summary><p>Uploaded text is analyzed online. Place queries are sent to the location provider.</p></details>
+        {(classifierMode === "preview" || locationMode === "preview") && <p className="baseline-note">Demo analysis is active. Location coverage may be limited to Alberta.</p>}
+        {(classifierMode === "unconfigured" || locationMode === "unconfigured") && <p className="error-text" role="status">Analysis is temporarily unavailable. Please try again later.</p>}
         </div>
-        {locationMode === "service" && <p className="baseline-note">Geocoding: <a href="https://locationiq.com" target="_blank" rel="noopener noreferrer">Search by LocationIQ.com</a>. Only extracted place queries are sent to LocationIQ. A daily safety cap and provider quotas can pause processing; location scores are heuristic, not verified accuracy.</p>}
       </section>
       {error && <div className="alert error" role="alert">{error}</div>}
       {phase && <div className="processing-status"><span role="status">{phase}</span>{busy ? <><progress aria-label="Analysis progress" value={progress} max={100} /><button className="text-button" onClick={() => controller.current?.abort()}>Cancel analysis</button></> : failed > 0 && <button className="text-button" onClick={() => analyze(true)}>Retry incomplete reports ({number(failed)})</button>}</div>}
@@ -229,6 +231,6 @@ export default function App() {
           </div>}
         </div>
       </section>
-    </main><footer><span>{fileName || "No dataset"} · Mentioned places, not verified incidents</span><span>{classifierMode === "preview" || locationMode === "preview" ? "Preview services" : classifierMode === "service" && locationMode === "service" ? "Services connected" : "Check service status"}{locationMode === "service" && <> · <a href="https://locationiq.com" target="_blank" rel="noopener noreferrer">Search by LocationIQ.com</a></>}</span></footer>
+    </main><footer><span>{fileName || "No dataset"} · Mentioned places, not verified incidents</span>{locationMode === "service" && <a href="https://locationiq.com" target="_blank" rel="noopener noreferrer">Search by LocationIQ.com</a>}</footer>
   </div>;
 }
