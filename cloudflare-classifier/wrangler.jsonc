@@ -6,6 +6,7 @@
   "compatibility_flags": ["python_workers"],
   "workers_dev": false,
   "preview_urls": false,
+  "services": [{ "binding": "GEOCODER_SERVICE", "service": "living-flood-geocoder" }],
   "limits": { "cpu_ms": 30000 },
   "rules": [
     { "type": "Data", "globs": ["**/*.gz"], "fallthrough": true }

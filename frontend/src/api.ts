@@ -10,7 +10,7 @@ export async function processBatches<T extends { tweet_id: string }>(
   onProgress: (done: number, total: number) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const batchSize = path.endsWith("/classify") ? 400 : 40;
+  const batchSize = path.endsWith("/classify") ? 400 : 10;
   for (let start = 0; start < tweets.length; start += batchSize) {
     signal.throwIfAborted();
     const batch = tweets.slice(start, start + batchSize);

@@ -29,6 +29,17 @@ Required labels are `relevant`, `unrelated`, and `uncertain`. Edward's current A
 
 ## Location integration
 
+The eliteplus9 deployment uses the `LOCATION` private Python binding, retaining
+Mutasim's extractor and contextual resolver. LocationIQ supplies candidate
+places through a private gateway. Its token is a Worker secret, never sent to
+the browser. Provider calls are serialized at least 1.1 seconds apart, cached
+for 24 hours and capped at 1,000 uncached requests per UTC day. The frontend
+uses 10-row location batches. These safeguards can pause large uploads;
+full-dataset geocoding throughput and accuracy have not been benchmarked.
+Live checks resolved Calgary, London and Tokyo and preserved IDs. The UI
+displays LocationIQ attribution. External/preview paths below are alternatives
+when the private binding is absent.
+
 The UI calls `POST /api/locations` with no more than 50 `SourceTweet` records and expects `BatchResponse<LocationResult>`.
 
 When both `LOCATION_URL` and `LOCATION_API_KEY` are set, the Worker calls the separate `location_api.py` adapter, which uses Mutasim's extraction and contextual resolver. It validates IDs, scores, statuses, and coordinates. With neither setting, the UI uses its labelled, limited Alberta preview. Partial configuration and upstream failures are visible errors, not zero-location results. An optional two-letter country code controls country preference; leaving it blank allows worldwide lookup.

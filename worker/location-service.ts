@@ -1,6 +1,7 @@
 import type { AnalysisContext, BatchResponse, LocationResult, SourceTweet } from "../shared/contracts";
 
 export interface LocationConfig {
+  LOCATION?: { fetch: typeof fetch };
   LOCATION_URL?: string;
   LOCATION_API_KEY?: string;
 }
@@ -12,12 +13,12 @@ export class LocationServiceError extends Error {
 export async function locateWithService(
   tweets: SourceTweet[], context: AnalysisContext | undefined, config: LocationConfig, fetcher: typeof fetch = fetch,
 ): Promise<BatchResponse<LocationResult>> {
-  if (!config.LOCATION_URL || !config.LOCATION_API_KEY) {
+  if (!config.LOCATION && (!config.LOCATION_URL || !config.LOCATION_API_KEY)) {
     throw new LocationServiceError("The location service is not fully configured.", 503);
   }
   let endpoint: URL;
   try {
-    endpoint = new URL("/locations", config.LOCATION_URL);
+    endpoint = new URL("/locations", config.LOCATION ? "https://locations.internal" : config.LOCATION_URL);
     if (endpoint.protocol !== "https:" && !(endpoint.protocol === "http:" && ["localhost", "127.0.0.1"].includes(endpoint.hostname))) {
       throw new Error("HTTPS required");
     }
@@ -26,9 +27,9 @@ export async function locateWithService(
   }
   let upstream: Response;
   try {
-    upstream = await fetcher(endpoint, {
+    upstream = await (config.LOCATION ? config.LOCATION.fetch.bind(config.LOCATION) : fetcher)(config.LOCATION ? endpoint.toString() : endpoint, {
       method: "POST", redirect: "manual",
-      headers: { "content-type": "application/json", authorization: `Bearer ${config.LOCATION_API_KEY}` },
+      headers: { "content-type": "application/json", ...(config.LOCATION ? {} : { authorization: `Bearer ${config.LOCATION_API_KEY}` }) },
       body: JSON.stringify({
         tweets: tweets.map(({ tweet_id, tweet, source_row }) => ({ tweet_id, tweet, source_row })),
         ...(context?.country_code ? { prefer_country: context.country_code } : {}),

@@ -14,7 +14,10 @@ and `source_row`. GET `/health` loads the model. No tweet storage is configured.
 
 The eliteplus9 app is connected using its `CLASSIFIER` service binding. Public
 API routes have a 120 requests/minute per-IP limiter, not user authentication or
-a global spending cap. Location matching remains the labelled preview.
+a global classifier spending cap. Locations use Mutasim's resolver with
+prefetched LocationIQ candidates through `GEOCODER_SERVICE`. The private gateway
+is configured by `wrangler.geocoder.jsonc` in the repo root. Its provider key is
+a separate Worker secret. Run `prepare.ps1` before packaging source updates.
 
 Live validation: `verify_live.py` checked all 8,024 supplied rows through the
 deployed app in 400-row batches. IDs, labels, categories, reasons, review flags

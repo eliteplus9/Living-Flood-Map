@@ -9,6 +9,17 @@ const valid = () => ({ results: [{ tweet_id: "source-1", mention: "Calgary", can
 
 afterEach(() => vi.unstubAllGlobals());
 describe("location service boundary", () => {
+  it("calls the private location binding without exposing a provider key", async () => {
+    const privateFetch = vi.fn(async (_url: string, init: RequestInit) => {
+      expect(init.headers).toEqual({ "content-type": "application/json" });
+      expect(init.redirect).toBe("manual");
+      return Response.json(valid());
+    });
+    const publicFetch = vi.fn();
+    const response = await locateWithService(tweets, undefined, { LOCATION: { fetch: privateFetch as typeof fetch } }, publicFetch);
+    expect(response.results[0].tweet_id).toBe("source-1");
+    expect(publicFetch).not.toHaveBeenCalled();
+  });
   it("passes stable IDs and explicit country choice while retaining multiple mentions", async () => {
     const fetcher = vi.fn(async (_url: URL, init: RequestInit) => {
       expect(init.headers).toMatchObject({ authorization: "Bearer test-key" });

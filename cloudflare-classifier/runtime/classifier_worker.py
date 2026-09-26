@@ -12,7 +12,7 @@ class Default(WorkerEntrypoint):
         path = urlparse(request.url).path
         if path == "/health":
             return Response.json({"ok": True, "classifier_version": load_model().version})
-        if path != "/classify" or request.method != "POST":
+        if path not in {"/classify", "/locations"} or request.method != "POST":
             return Response.json({"error": "Route not found."}, status=404)
         try:
             text = await request.text()
@@ -20,7 +20,7 @@ class Default(WorkerEntrypoint):
                 return Response.json({"error": "Batch exceeds 2 MB."}, status=413)
             payload = json.loads(text)
             rows = payload.get("tweets") if isinstance(payload, dict) else None
-            if not isinstance(rows, list) or not 1 <= len(rows) <= 500:
+            if not isinstance(rows, list) or not 1 <= len(rows) <= (50 if path == "/locations" else 500):
                 raise ValueError()
             ids, source_rows = set(), set()
             for row in rows:
@@ -33,9 +33,16 @@ class Default(WorkerEntrypoint):
                     raise ValueError()
                 ids.add(row["tweet_id"])
                 source_rows.add(row["source_row"])
+            country = payload.get("prefer_country")
+            if country is not None and (not isinstance(country, str) or len(country) != 2 or not country.isascii() or not country.isalpha()):
+                raise ValueError()
         except (ValueError, TypeError, KeyError):
             return Response.json({"error": "Invalid batch IDs, source rows or text."}, status=422)
         try:
+            if path == "/locations":
+                from location_adapter import locate
+                return Response.json(await locate(rows, country, self.env.GEOCODER_SERVICE),
+                                     headers={"Cache-Control": "no-store"})
             result = classify_tweets(pd.DataFrame(rows))
             # pandas JSON conversion handles numpy scalars and null duplicate IDs.
             return Response.json({"results": json.loads(result.to_json(orient="records", double_precision=15)),

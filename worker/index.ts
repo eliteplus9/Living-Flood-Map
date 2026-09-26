@@ -111,7 +111,7 @@ export default {
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
     if (request.method === "GET" && url.pathname === "/api/health") {
       const classifier_mode = env.CLASSIFIER || env.CLASSIFIER_URL && env.CLASSIFIER_API_KEY ? "service" : env.CLASSIFIER_URL || env.CLASSIFIER_API_KEY ? "unconfigured" : "preview";
-      const location_mode = env.LOCATION_URL && env.LOCATION_API_KEY ? "service" : env.LOCATION_URL || env.LOCATION_API_KEY ? "unconfigured" : "preview";
+      const location_mode = env.LOCATION || env.LOCATION_URL && env.LOCATION_API_KEY ? "service" : env.LOCATION_URL || env.LOCATION_API_KEY ? "unconfigured" : "preview";
       return json({ ok: true, service: "living-flood-map", classifier_mode, location_mode, model_version: classifier_mode === "preview" ? MODEL_VERSION : undefined });
     }
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
@@ -129,7 +129,7 @@ export default {
         return json(response);
       }
       if (url.pathname === "/api/locations") {
-        if (env.LOCATION_URL || env.LOCATION_API_KEY) {
+        if (env.LOCATION || env.LOCATION_URL || env.LOCATION_API_KEY) {
           return json(await locateWithService(body.tweets, body.context, env));
         }
         const response: BatchResponse<LocationResult> = { results: body.tweets.flatMap(tweet => locate(tweet, body.context?.region)), warnings: [], model_version: MODEL_VERSION };
