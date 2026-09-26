@@ -284,3 +284,76 @@ footer { display: flex; gap: 20px; justify-content: space-between; border-top: 1
   .metric-grid { grid-template-columns: 1fr 1fr; }
   .privacy { display: none; }
 }
+
+/* Readable type scales with the user's font preference, never down with a phone. */
+:root {
+  --text-body: clamp(1rem, .96rem + .15vw, 1.125rem);
+  --text-control: .9375rem;
+  --text-secondary: .875rem;
+}
+body { font-size: var(--text-body); line-height: 1.5; }
+input, select, textarea { font-size: 1rem; line-height: 1.5; min-width: 0; }
+label { font-size: var(--text-secondary); line-height: 1.5; min-width: 0; }
+.app-bar { height: auto; min-height: 4.5rem; }
+.app-bar h1 { font-size: clamp(1rem, .95rem + .3vw, 1.25rem); }
+.app-bar .tabs { min-height: 4.5rem; }
+.app-bar .tabs button, .app-shell .secondary, .app-shell .primary,
+.text-button, .fit-map { font-size: var(--text-control); line-height: 1.4; min-height: 2.75rem; }
+.app-shell .workspace-toolbar { flex-wrap: wrap; }
+.app-shell .view-count, .app-shell .processing-status, .app-shell > footer,
+.baseline-note, .preview, .privacy, .dataset-stat span, .dataset-switch,
+.report-meta, .locations span, .report-list details, .report-select small,
+.signal-tags span, .signal-detail, .place-role, .place-role small,
+.investigation-heading p, .context-note, .investigation-toolbar,
+.triage-filters button, .briefing-preview, .metric-grid span,
+.workspace .dataset-totals, .workspace .filter-options, .bar-row,
+.pagination, .muted, .summary-card small, .evidence-grid small {
+  font-size: var(--text-secondary); line-height: 1.5;
+}
+.tweet-text, .report-select p, .evidence-detail > blockquote, .evidence-grid p {
+  font-size: var(--text-body); line-height: 1.65;
+}
+.app-shell .intake h2 { font-size: 1.25rem; }
+.app-shell .upload-box span { font-size: var(--text-secondary); }
+.map-start strong { font-size: 1.125rem; }
+.map-start p { font-size: 1rem; line-height: 1.5; }
+.map-start small { font-size: var(--text-secondary); line-height: 1.5; }
+.map-start .primary, .map-start .secondary { min-height: 2.75rem; }
+.map-stage > .map-note { font-size: var(--text-secondary); line-height: 1.5; max-width: calc(100% - 74px); }
+.map-stage > .place-directory, .map-stage > .unmapped,
+.investigation-map .place-directory, .map-empty-note, .map-note { font-size: var(--text-secondary); line-height: 1.5; }
+.place-directory > summary, .unmapped > summary { min-height: 2.75rem; display: flex; align-items: center; gap: .5rem; }
+.place-directory > summary::before, .unmapped > summary::before { content: "▸"; }
+.place-directory[open] > summary::before, .unmapped[open] > summary::before { content: "▾"; }
+.leaflet-container { font-family: inherit; font-size: var(--text-secondary); }
+.leaflet-popup-content { font-size: var(--text-secondary); line-height: 1.5; overflow-wrap: anywhere; }
+.leaflet-popup-content button { font-size: var(--text-control); min-height: 2.75rem; }
+.leaflet-tooltip { font-size: var(--text-secondary); }
+.leaflet-control-attribution { font-size: .75rem; }
+.app-shell > footer { flex-wrap: wrap; overflow-wrap: anywhere; }
+.report-meta { flex-wrap: wrap; }
+.app-shell .intake { top: 5rem; max-height: calc(100dvh - 6rem); }
+.app-shell .intake .privacy { display: block; }
+.map-stage > .map { height: calc(100dvh - 18rem); min-height: 27rem; }
+.map-start { top: 5rem; }
+@media (max-width: 1000px) {
+  .app-bar { flex-wrap: wrap; gap: .5rem; padding: .75rem 1rem 0; }
+  .app-bar .tabs { order: 3; width: 100%; height: auto; min-height: 2.75rem; flex-wrap: wrap; }
+  .app-bar .tabs button { flex: 1 1 auto; padding: .625rem .5rem; }
+  .app-bar h1 { white-space: normal; }
+  .app-shell .intake { top: .75rem; max-height: calc(100dvh - 1.5rem); }
+}
+@media (max-width: 760px), (pointer: coarse) {
+  :root { --text-control: 1rem; }
+  .app-shell .secondary, .app-shell .primary { padding: .625rem .75rem; }
+  .app-bar .dataset-button { white-space: normal; }
+  .map-stage > .map { height: calc(100dvh - 21rem); min-height: 27rem; }
+  .map-start { top: 5.5rem; }
+  .search-control { flex-basis: 60%; min-width: 0; }
+  .app-shell .workspace-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .workspace-toolbar .search-control { grid-column: 1; grid-row: 1; width: 100%; }
+  .workspace-toolbar > button[aria-controls="report-filters"] { grid-column: 2; grid-row: 1; }
+  .app-shell .workspace-toolbar .view-count { grid-column: 1; grid-row: 2; padding: 0; margin-left: 0; }
+  .workspace-toolbar .export-control { grid-column: 2; grid-row: 2; }
+  .inline { flex-wrap: wrap; }
+}

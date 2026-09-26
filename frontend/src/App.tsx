@@ -191,7 +191,7 @@ export default function App() {
           <label className="search-control"><span className="sr-only">Search reports</span><input type="search" placeholder="Search reports or places" value={filters.query} onChange={event => changeFilter("query", event.target.value)} /></label>
           <button className="secondary" aria-expanded={filtersOpen} aria-controls="report-filters" onClick={() => setFiltersOpen(value => !value)}>Filters</button>
           <span className="view-count">{number(filtered.length)} matching reports</span>
-          <button className="secondary export-control" onClick={download} disabled={!filtered.length}>Export filtered CSV ↓</button>
+          <button className="secondary export-control" aria-label="Export filtered CSV" onClick={download} disabled={!filtered.length}>Export CSV ↓</button>
         </div>
         <div id="report-filters" hidden={!filtersOpen}>
         <div className="dataset-totals" aria-label="Dataset totals">
