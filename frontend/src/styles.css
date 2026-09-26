@@ -142,7 +142,11 @@ input, select { width: 100%; padding: 10px 11px; border: 1px solid #b8c7c4; bord
 .investigation-grid.review-focus { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
 .investigation-list, .evidence-detail, .investigation-map { max-height: 850px; overflow: auto; scrollbar-width: thin; }
 .investigation-list > article { padding: 12px; border: 1px solid #dce4d8; margin-bottom: 8px; border-radius: 8px; }
-.investigation-list > article.selected { border: 2px solid #257a70; background: #f2f8f0; }
+.investigation-list > article.selected, .report-list > article.selected { border-color: #147c77; background: #d9eee8; box-shadow: inset 4px 0 0 #147c77; }
+.report-list > article { cursor: pointer; }
+.report-list > article:hover:not(.selected) { background: #f1f7f4; }
+.tweet-text { display: block; width: 100%; border: 0; padding: 10px 0; background: transparent; text-align: left; color: inherit; line-height: 1.5; overflow-wrap: anywhere; }
+.selection-label { color: #075b50; font-weight: 750; }
 .report-select { border: 0; background: transparent; color: #284f43; text-align: left; padding: 8px 0; width: 100%; }
 .report-select p { font-size: .83rem; line-height: 1.55; overflow-wrap: anywhere; }
 .report-select small { color: #677e71; }

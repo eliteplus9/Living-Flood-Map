@@ -17,6 +17,7 @@ export default function App() {
   const [region, setRegion] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [results, setResults] = useState<ProcessedTweet[]>([]);
+  const [activeTweetId, setActiveTweetId] = useState<string>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,6 +54,7 @@ export default function App() {
     setBusy(false); setLoading(true); setParsed(undefined); setError(""); setResults([]); setPhase("");
     setFilters({ ...defaultFilters }); setPage(1);
     setReviews({}); setElapsed(undefined); setIntakeOpen(true);
+    setActiveTweetId(undefined);
     try {
       const next = await parseCsv(file);
       if (version !== loadVersion.current) return;
@@ -138,6 +140,7 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function showEvidence(tweetId: string) {
+    setActiveTweetId(tweetId);
     const index = filtered.findIndex(row => row.tweet_id === tweetId);
     setPage(Math.floor(Math.max(0, index) / 30) + 1); setTab("reports");
     setTimeout(() => document.getElementById(tweetId)?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
@@ -215,9 +218,13 @@ export default function App() {
           {tab === "reports" && <>
             <div className="pagination"><span>{filtered.length ? `${number((activePage - 1) * 30 + 1)}–${number(Math.min(activePage * 30, filtered.length))} of ${number(filtered.length)} reports` : "No matching reports"}</span><div><button className="secondary" disabled={activePage <= 1} onClick={() => setPage(activePage - 1)}>Previous</button><span>Page {activePage} / {pages}</span><button className="secondary" disabled={activePage >= pages} onClick={() => setPage(activePage + 1)}>Next</button></div></div>
             {!visible.length && <div className="empty-state">No reports match. Try another search or reset your filters.</div>}
-            <div className="report-list">{visible.map(row => <article id={row.tweet_id} key={row.tweet_id}><div className="report-meta"><span className={"badge " + (row.classification?.relevance ?? "uncertain")}>{row.classification?.relevance ?? (busy ? "pending" : "unprocessed")}</span><span>Record {row.source_row}</span>{row.classification && <span>Relevance score: {Math.round(row.classification.relevance_score * 100)}%</span>}{row.classification?.needs_review && <span>Needs review</span>}{row.duplicate_of && <span>Repeated text</span>}</div><p>{row.tweet}</p><div className="locations">{row.locations.map((loc, index) => <span key={index}>{loc.canonical_name ?? loc.mention} · {loc.status}</span>)}</div>{(row.classification_error || row.location_error) && <p className="error-text">{row.classification_error ?? row.location_error}</p>}<details><summary>Why this result?</summary><p>{row.classification?.reason ?? "Processing did not complete. Retry this report."}</p><small>{row.classification?.model_version} · ID: {row.tweet_id}</small></details></article>)}</div>
+            <div className="report-list">{visible.map(row => <article id={row.tweet_id} key={row.tweet_id} className={activeTweetId === row.tweet_id ? "selected" : ""} onClick={() => setActiveTweetId(row.tweet_id)}>
+              <div className="report-meta"><span className={"badge " + (row.classification?.relevance ?? "uncertain")}>{row.classification?.relevance ?? (busy ? "pending" : "unprocessed")}</span><span>Record {row.source_row}</span>{activeTweetId === row.tweet_id && <span className="selection-label">Selected</span>}{row.classification && <span>Relevance score: {Math.round(row.classification.relevance_score * 100)}%</span>}{row.classification?.needs_review && <span>Needs review</span>}{row.duplicate_of && <span>Repeated text</span>}</div>
+              <button className="tweet-text" aria-pressed={activeTweetId === row.tweet_id} aria-label={"Select record " + row.source_row} onClick={() => setActiveTweetId(row.tweet_id)}>{row.tweet}</button>
+              <div className="locations">{row.locations.map((loc, index) => <span key={index}>{loc.canonical_name ?? loc.mention} · {loc.status}</span>)}</div>{(row.classification_error || row.location_error) && <p className="error-text">{row.classification_error ?? row.location_error}</p>}<details><summary>Why this result?</summary><p>{row.classification?.reason ?? "Processing did not complete. Retry this report."}</p><small>{row.classification?.model_version} · ID: {row.tweet_id}</small></details>
+            </article>)}</div>
           </>}
-          {tab === "map" && <div className="map-stage"><MapPanel tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} />
+          {tab === "map" && <div className="map-stage"><MapPanel tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} activeTweetId={activeTweetId} />
             {!results.length && <div className="map-start"><strong>No dataset loaded</strong><p>Upload a CSV to map its reports.</p><div><button className="primary" onClick={() => setIntakeOpen(true)}>Choose a CSV</button><button className="secondary" disabled={loading} onClick={loadSample}>Use supplied dataset</button></div><small>Sample: Alberta floods, 2013</small></div>}
           </div>}
         </div>
