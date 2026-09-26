@@ -1,8 +1,71 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #153538;
-  background: #f3f0e8;
+  background: #f5f7f7;
   font-synthesis: none;
+}
+/* The map is the entry point; dataset setup lives in a dismissible panel. */
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.app-bar { display: flex; align-items: center; gap: 28px; padding: 0 24px; height: 68px; background: white; border-bottom: 1px solid #d9e1df; }
+.app-bar h1 { margin: 0; font-size: 17px; letter-spacing: -.4px; white-space: nowrap; }
+.app-bar h1 span { color: #087b79; font-size: 28px; vertical-align: middle; margin-right: 7px; }
+.app-bar .tabs { padding: 0; border: 0; height: 100%; }
+.app-bar .tabs button { font-size: 13px; font-weight: 600; padding: 0 15px; }
+.app-bar .tabs button.active { border-bottom-color: #147c77; }
+.app-bar .dataset-button { margin-left: auto; white-space: nowrap; }
+.app-shell > main { width: 100%; margin: 0; }
+.app-shell .workspace { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+.app-shell .workspace-toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 24px; border-bottom: 1px solid #dce4e1; }
+.search-control { width: min(360px, 40vw); }
+.app-shell .secondary { font-size: 12px; font-weight: 600; padding: 9px 13px; border-color: #d0dcd8; border-radius: 6px; }
+.app-shell .primary { background: #126b66; border-radius: 6px; font-size: 13px; }
+.app-shell .workspace .view-count { margin-left: auto; }
+.app-shell #report-filters { padding: 16px 24px; background: #f7f9f8; border-bottom: 1px solid #dce4e1; }
+.app-shell #report-filters .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 12px 0; }
+.app-shell #report-filters .dataset-totals { padding: 0 0 12px; gap: 16px; }
+.app-shell #report-filters .filter-options { padding: 8px 0 0; }
+.app-shell .map-workspace > .view-content { padding: 0; }
+.map-stage { position: relative; }
+.map-stage > .map { height: calc(100dvh - 222px); min-height: 390px; border-radius: 0; background: #dce5e5; }
+.map-stage > .map-note { position: absolute; top: 12px; left: 58px; z-index: 450; margin: 0; padding: 8px 12px; background: #fffffff0; border: 1px solid #dce4e1; border-radius: 5px; font-size: 11px; pointer-events: none; }
+.map-start { position: absolute; top: 64px; left: 24px; z-index: 450; width: 310px; padding: 20px; border: 1px solid #d7dfda; border-radius: 8px; background: white; box-shadow: 0 4px 18px #193b3c15; }
+.map-start strong { font-size: 15px; }
+.map-start p { font-size: 13px; color: #62756f; margin: 8px 0 16px; }
+.map-start > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.map-start .primary { margin: 0; padding: 9px 12px; }
+.map-start small { display: block; margin-top: 14px; color: #6b7a74; font-size: 11px; }
+.fit-map { position: absolute; z-index: 450; bottom: 30px; right: 12px; background: white; border: 1px solid #b7cac5; border-radius: 5px; padding: 9px 13px; color: #235953; font: 600 12px system-ui; }
+.map-stage > .place-directory, .map-stage > .unmapped { margin: 0; padding: 6px 24px; background: white; font-size: 12px; }
+.map-empty-note { margin: 0; padding: 10px 24px; font-size: 12px; background: #f5f7f5; }
+.app-shell .intake { position: fixed; right: 16px; top: 76px; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 92px); overflow-y: auto; z-index: 1000; border-radius: 10px; padding: 22px; box-shadow: 0 10px 60px #183d3930; }
+.app-shell .intake h2 { font-family: inherit; font-size: 18px; }
+.app-shell .intake .upload-row { flex-direction: column; margin: 16px 0; }
+.app-shell .intake .upload-box { min-height: 110px; padding: 16px; }
+.app-shell .intake .upload-icon { display: none; }
+.app-shell .intake .sample-card { padding: 12px; background: #f3f6f4; }
+.app-shell .intake .sample-card .eyebrow, .app-shell .intake .sample-card strong, .app-shell .intake .sample-card p { display: none; }
+.app-shell .intake .configuration { grid-template-columns: 1fr; }
+.app-shell .processing-status { display: flex; align-items: center; gap: 16px; padding: 10px 24px; background: #edf4f0; font-size: 12px; }
+.processing-status progress { height: 6px; width: min(240px, 25vw); accent-color: #126b66; }
+.app-shell > footer { padding: 10px 24px; font-size: 11px; background: #f7f9f8; gap: 8px; }
+.app-shell footer a { color: #35695c; }
+@media (max-width: 760px) {
+  .app-bar { height: auto; min-height: 98px; flex-wrap: wrap; padding: 12px 16px 0; gap: 8px; }
+  .app-bar h1 { font-size: 15px; }
+  .app-bar .dataset-button { padding: 8px; }
+  .app-bar .tabs { order: 3; width: 100%; flex-wrap: nowrap; height: 40px; }
+  .app-bar .tabs button { flex: 1; padding: 0 8px; }
+  .app-shell .workspace-toolbar { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+  .search-control { flex: 1; width: auto; min-width: 160px; }
+  .workspace-toolbar .view-count { order: 3; flex: 1; }
+  .workspace-toolbar .export-control { order: 4; }
+  .app-shell #report-filters .filters { grid-template-columns: 1fr; }
+  .map-stage > .map { height: calc(100dvh - 288px); min-height: 350px; }
+  .map-stage > .map-note { max-width: calc(100% - 72px); font-size: 10px; }
+  .map-start { left: 12px; width: min(300px, calc(100% - 24px)); }
+  .app-shell .processing-status { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+  .app-shell > footer { padding: 10px 12px; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }

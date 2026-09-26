@@ -8,7 +8,7 @@ function FitPoints({ points }: { points: [number, number][] }) {
   useEffect(() => {
     if (points.length) map.fitBounds(points, { padding: [40, 40], maxZoom: 11 });
   }, [map, points]);
-  return null;
+  return <button className="fit-map" onClick={() => points.length ? map.fitBounds(points, { padding: [40, 40], maxZoom: 11 }) : map.setView([30, 0], 2)}>Fit places</button>;
 }
 export default function MapPanel({ tweets, onEvidence, onPlace, activeTweetId, compact = false }: { tweets: ProcessedTweet[]; onEvidence: (id: string) => void; onPlace?: (name: string) => void; activeTweetId?: string; compact?: boolean }) {
   const [tileError, setTileError] = useState(false);
@@ -20,10 +20,9 @@ export default function MapPanel({ tweets, onEvidence, onPlace, activeTweetId, c
   const mappedIds = new Set(groups.flatMap(group => group.reports.map(row => row.tweet_id)));
   const unmapped = tweets.filter(row => !mappedIds.has(row.tweet_id));
   return <>
-    <p className="map-note">Showing relevant reports only. Markers identify mentioned places, using approximate place centres. They do not mark exact flood incidents.</p>
+    <p className="map-note">{groups.length} places · {mappedIds.size} mapped reports · Approximate locations</p>
     {tileError && <div role="status" className="alert warning">The background map could not load. Place names and source reports remain available below.</div>}
-    {!groups.length ? <div className="empty-state">No resolved places in this selection. Reports without a map point remain available in the Reports view.</div> :
-      <MapContainer center={coordinates[0]} zoom={6} className="map" scrollWheelZoom={false}>
+      <MapContainer center={coordinates[0] ?? [30, 0]} zoom={coordinates.length ? 6 : 2} className="map" scrollWheelZoom={true}>
         <FitPoints points={coordinates} />
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" eventHandlers={{ tileerror: () => setTileError(true) }} />
@@ -37,15 +36,16 @@ export default function MapPanel({ tweets, onEvidence, onPlace, activeTweetId, c
             {group.reports.length > 4 && <small>Filter by this place above to see all reports.</small>}
           </Popup>
         </CircleMarker>)}
-      </MapContainer>}
-    <div className="place-directory"><h3>{compact ? "Explore a community" : "Mapped places & source reports"}</h3><p className="muted">Accessible list of every mapped place. Counts follow your filters.</p>
+      </MapContainer>
+    {!groups.length && <p className="map-empty-note">No resolved places in this selection. Source reports remain available in Reports.</p>}
+    <details className="place-directory"><summary>{compact ? "Explore a community" : "Mapped places & source reports"} ({groups.length})</summary>
       {groups.map(group => <details key={group.coordinates.join(",")}><summary>{group.name} <strong>{group.reports.length} reports</strong></summary>
         {onPlace && <button className="secondary" onClick={() => onPlace(group.name)}>Investigate {group.name}</button>}
         <p>{new Set(group.reports.map(row => row.normalized_tweet.toLowerCase())).size} unique texts · coordinates {group.coordinates.map(value => value.toFixed(4)).join(", ")}</p>
         {group.reports.slice(0, 5).map(row => <button className="evidence-link" key={row.tweet_id} onClick={() => onEvidence(row.tweet_id)}>Record {row.source_row}: {row.tweet}</button>)}
         {group.reports.length > 5 && <p>Use the Place filter above to view all {group.reports.length} reports.</p>}
       </details>)}
-    </div>
+    </details>
     <details className="unmapped"><summary>{unmapped.length} relevant reports without a resolved place</summary><p>Location matching can miss or misread places. A missing map point does not mean a report has no location.</p>{unmapped.slice(0, 5).map(row => <button className="evidence-link" key={row.tweet_id} onClick={() => onEvidence(row.tweet_id)}>Record {row.source_row}: {row.tweet}</button>)}</details>
   </>;
 }

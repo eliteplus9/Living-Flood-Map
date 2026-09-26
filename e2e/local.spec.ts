@@ -1,4 +1,33 @@
 import { test, expect } from "@playwright/test";
+import worker from "../worker/index";
+
+// Exercise the real UI and Worker preview path without spending live provider quota.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/**", async route => {
+    const incoming = route.request();
+    const response = await worker.fetch(new Request(incoming.url(), {
+      method: incoming.method(),
+      ...(incoming.method() === "POST" ? { body: incoming.postData() } : {}),
+    }), {} as Parameters<typeof worker.fetch>[1]);
+    await route.fulfill({ status: response.status, contentType: "application/json", body: await response.text() });
+  });
+});
+
+test("opens on the map with compact navigation and optional dataset setup", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".leaflet-container")).toBeVisible();
+  await expect(page.getByRole("button", { name: "map", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("#dataset-panel")).toBeHidden();
+  await expect(page.locator(".hero, .welcome")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/map-first-desktop.png", fullPage: true });
+  await page.getByRole("button", { name: "Upload CSV", exact: true }).click();
+  await expect(page.locator("#dataset-panel")).toBeVisible();
+  await page.getByRole("button", { name: "Close settings" }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".leaflet-container")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.screenshot({ path: "test-results/map-first-mobile.png", fullPage: true });
+});
 test("complete supplied dataset, linked views, export, mobile layout", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -35,6 +64,7 @@ test("unseen column, embedded newline, blanks, no results and failed-batch retry
   await page.route("**/api/classify", route => route.fulfill({ status: 503, body: "{}" }));
   await page.getByRole("button", { name: "Analyze dataset" }).click();
   await expect(page.getByRole("button", { name: /Retry incomplete/ })).toBeVisible();
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
   await page.getByRole("combobox", { name: "Relevance", exact: true }).selectOption("failed");
   await expect(page.locator(".view-count")).toHaveText("2 matching reports");
   await page.unroute("**/api/classify");
@@ -57,7 +87,8 @@ test("cancellation preserves results and changed column clears stale analysis", 
   await expect(page.getByText("Cancelled · completed results are preserved")).toBeVisible();
   await expect(page.getByRole("button", { name: /Retry incomplete/ })).toBeVisible();
   await page.getByLabel("Upload CSV").setInputFiles({ name: "new.csv", mimeType: "text/csv", buffer: Buffer.from("tweet\nHello world") });
-  await expect(page.locator(".workspace")).toHaveCount(0);
+  await expect(page.locator(".report-list article")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Analyze dataset" })).toBeVisible();
 });
 
 test("community investigation preserves corrections, links places and exports reviewed evidence", async ({ page }) => {
@@ -66,6 +97,7 @@ test("community investigation preserves corrections, links places and exports re
   await page.getByLabel("Upload CSV").setInputFiles({ name: "evidence.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   await page.getByRole("button", { name: "Analyze dataset" }).click();
   await expect(page.getByText("Analysis complete", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "investigate", exact: true }).click();
   await expect(page.locator(".investigation")).toBeVisible();
   await page.getByRole("button", { name: /Corrections & reassurance/ }).click();
   await expect(page.locator(".investigation-list > article")).toHaveCount(2);
@@ -85,6 +117,7 @@ test("community investigation preserves corrections, links places and exports re
   await page.getByRole("button", { name: /Offers/ }).click();
   await expect(page.locator(".evidence-detail")).toContainText("Possible beneficiary");
   await page.locator(".evidence-detail").getByRole("button", { name: "Siksika Nation", exact: true }).click();
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Place", exact: true })).toHaveValue("Siksika Nation");
   await page.screenshot({ path: "test-results/investigation-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
