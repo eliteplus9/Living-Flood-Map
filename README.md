@@ -19,14 +19,15 @@ In a second terminal, run `npm run dev`, then open
 or an unseen CSV selected in the browser.
 
 The Investigate view links report text, evidence types, map places and
-session-only reviewer annotations. The included classification and location
-logic is a baseline; its scores are heuristics, and its Alberta gazetteer
-covers only selected places. The overview and Markdown briefing state the
-limits of their evidence. See [INTEGRATION.md](INTEGRATION.md) for the
-contract used by teammates' modules.
+session-only reviewer annotations. The Worker can use Edward's classifier
+and Mutasim's location service when separately configured. Without those
+services, the app clearly labels its local keyword and Alberta-gazetteer
+preview. The overview and Markdown briefing state the limits of their
+evidence. See [INTEGRATION.md](INTEGRATION.md) for setup and contracts.
 
 This branch is a local-review and integration contribution. It does not
-deploy itself or replace teammates' Python work.
+deploy itself or replace teammates' Python work. Edward's 3D map experiment
+is not merged into this branch.
 
 ---
 

@@ -28,9 +28,10 @@ class Geocoder:
       - choose_candidate(name, candidates, context_coords=None, prefer_country='CA') -> chosen candidate or None
     """
 
-    def __init__(self, user_agent: str = "living-flood-map", min_delay_seconds: float = 1.0):
-        self.geolocator = Nominatim(user_agent=user_agent)
-        self._geocode = RateLimiter(self.geolocator.geocode, min_delay_seconds=min_delay_seconds)
+    def __init__(self, user_agent: str = "living-flood-map", min_delay_seconds: float = 1.0, domain: Optional[str] = None, strict_errors: bool = False):
+        self.geolocator = Nominatim(user_agent=user_agent, **({"domain": domain} if domain else {}))
+        self._geocode = RateLimiter(self.geolocator.geocode, min_delay_seconds=min_delay_seconds, swallow_exceptions=not strict_errors)
+        self.strict_errors = strict_errors
         self._cache: Dict[str, Optional[List[Dict[str, Any]]]] = {}
 
     def geocode_candidates(self, name: str, country_codes: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
@@ -69,6 +70,8 @@ class Geocoder:
             self._cache[key] = candidates
             return candidates
         except Exception:
+            if self.strict_errors:
+                raise
             self._cache[key] = None
             return None
 

@@ -87,3 +87,13 @@ def test_canonical_output_contract_and_values():
     ls = lookup[(1003, 'Lake Superior')]
     assert 'Lake Superior' in ls.canonical_name
     assert ls.status == 'resolved'
+
+
+def test_global_default_handles_distant_places_without_country_bias():
+    mentions = pd.DataFrame([
+        {'tweet_id': 'global-1', 'tweet': 'Toronto and Thunder Bay', 'mention': 'Toronto'},
+        {'tweet_id': 'global-1', 'tweet': 'Toronto and Thunder Bay', 'mention': 'Thunder Bay'},
+    ])
+    output = canonicalize_mentions(mentions, geocoder=FakeGeocoder())
+    assert len(output) == 2
+    assert set(output['status']).issubset({'resolved', 'ambiguous', 'unresolved'})

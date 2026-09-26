@@ -10,9 +10,10 @@ export async function processBatches<T extends { tweet_id: string }>(
   onProgress: (done: number, total: number) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  for (let start = 0; start < tweets.length; start += 40) {
+  const batchSize = path.endsWith("/classify") ? 400 : 40;
+  for (let start = 0; start < tweets.length; start += batchSize) {
     signal.throwIfAborted();
-    const batch = tweets.slice(start, start + 40);
+    const batch = tweets.slice(start, start + batchSize);
     let failure = "";
     let output: T[] = [];
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -20,9 +21,12 @@ export async function processBatches<T extends { tweet_id: string }>(
         const response = await fetch(path, {
           method: "POST", headers: { "content-type": "application/json" },
           body: JSON.stringify({ tweets: batch, context }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(95_000)]),
         });
-        if (!response.ok) throw new HttpError(`Request failed (${response.status}).`, response.status);
+        if (!response.ok) {
+          const detail = await response.json().catch(() => null) as { error?: string } | null;
+          throw new HttpError(detail?.error ?? `Request failed (${response.status}).`, response.status);
+        }
         const body = await response.json() as BatchResponse<T>;
         const ids = new Set(batch.map(row => row.tweet_id));
         if (!Array.isArray(body.results) || body.results.some(row => !row || !ids.has(row.tweet_id))) {
@@ -49,7 +53,7 @@ export async function processBatches<T extends { tweet_id: string }>(
         signal.throwIfAborted();
         failure = error instanceof Error ? error.message : String(error);
         if (error instanceof HttpError && error.status < 500 && error.status !== 429) break;
-        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 300 * 2 ** attempt));
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
       }
     }
     signal.throwIfAborted();

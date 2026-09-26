@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Classification, LocationResult, ProcessedTweet } from "../../shared/contracts";
 import { processBatches } from "./api";
 import { parseCsv, rowsToTweets, type ParsedCsv } from "./csv";
@@ -15,6 +15,7 @@ export default function App() {
   const [column, setColumn] = useState("tweet");
   const [fileName, setFileName] = useState("");
   const [region, setRegion] = useState("");
+  const [countryCode, setCountryCode] = useState("");
   const [results, setResults] = useState<ProcessedTweet[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -27,11 +28,23 @@ export default function App() {
   const [reviews, setReviews] = useState<Record<string, Review>>({});
   const [intakeOpen, setIntakeOpen] = useState(true);
   const [elapsed, setElapsed] = useState<number>();
+  const [classifierMode, setClassifierMode] = useState<"preview" | "service" | "unconfigured" | "unknown">("unknown");
+  const [locationMode, setLocationMode] = useState<"preview" | "service" | "unconfigured" | "unknown">("unknown");
   const controller = useRef<AbortController | null>(null);
   const loadVersion = useRef(0);
   const panel = useRef<HTMLElement>(null);
   const inputRows = useMemo(() => parsed ? rowsToTweets(parsed.rows, column) : [], [parsed, column]);
   const skipped = (parsed?.rows.length ?? 0) - inputRows.length;
+  useEffect(() => {
+    const control = new AbortController();
+    fetch("/api/health", { signal: control.signal }).then(response => response.json())
+      .then((health: { classifier_mode?: string; location_mode?: string }) => {
+        setClassifierMode(health.classifier_mode === "service" ? "service" : health.classifier_mode === "preview" ? "preview" : "unconfigured");
+        setLocationMode(health.location_mode === "service" ? "service" : health.location_mode === "preview" ? "preview" : "unconfigured");
+      })
+      .catch(() => { if (!control.signal.aborted) { setClassifierMode("unknown"); setLocationMode("unknown"); } });
+    return () => control.abort();
+  }, []);
 
   async function acceptFile(file: File, sample = false) {
     const version = ++loadVersion.current;
@@ -44,7 +57,7 @@ export default function App() {
       if (version !== loadVersion.current) return;
       if (!next.rows.length || !next.columns.length) throw new Error("This CSV has no data rows. Include a header and at least one report.");
       setParsed(next); setColumn(next.columns.find(item => item.toLowerCase() === "tweet") ?? next.columns[0]);
-      setFileName(file.name); setRegion(sample ? "Alberta, Canada" : "");
+      setFileName(file.name); setRegion(sample ? "Alberta, Canada" : ""); setCountryCode(sample ? "CA" : "");
     } catch (cause) {
       if (version === loadVersion.current) setError(cause instanceof Error ? cause.message : String(cause));
     } finally { if (version === loadVersion.current) setLoading(false); }
@@ -61,12 +74,13 @@ export default function App() {
   async function analyze(retry = false) {
     const started = performance.now();
     if (!inputRows.length) { setError("The selected column contains no usable text."); return; }
+    if (countryCode && !/^[A-Za-z]{2}$/.test(countryCode)) { setError("Use a two-letter country code, or leave it blank for worldwide matching."); return; }
     controller.current?.abort();
     const control = new AbortController(); controller.current = control;
     const working: ProcessedTweet[] = retry ? results.map(row => ({ ...row, locations: [...row.locations] })) :
       inputRows.map(row => ({ ...row, locations: [] }));
     const byId = new Map(working.map(row => [row.tweet_id, row]));
-    const context = { event_name: "Flood", region: region.trim() };
+    const context = { event_name: "Flood", region: region.trim(), country_code: countryCode.trim().toUpperCase() || undefined };
     setBusy(true); setError(""); setProgress(0); setPhase("Classifying reports");
     if (!retry) setReviews({});
     setResults(working); setPage(1);
@@ -130,7 +144,7 @@ export default function App() {
 
   return <div className="app-shell">
     <header className="hero">
-      <div className="brand-row"><span className="brand-icon" aria-hidden="true">≈</span><span className="eyebrow">CE Strategies / Community intelligence</span><span className="mode-pill">LOCAL PREVIEW</span></div>
+      <div className="brand-row"><span className="brand-icon" aria-hidden="true">≈</span><span className="eyebrow">CE Strategies / Community intelligence</span><span className="mode-pill">{classifierMode === "service" ? "CLASSIFIER CONNECTED" : classifierMode === "preview" ? "BASELINE PREVIEW" : "CLASSIFIER STATUS UNKNOWN"}</span></div>
       <div className="hero-content"><div><h1>The Living<br /><em>Flood Map.</em></h1><p>Find the signal. Understand the impact.<br />See the places behind the reports.</p></div><div className="hero-aside"><span className="eyebrow">From community voices to context</span><p>A shared view for communities, planners, and responders.</p><span>01 / Upload &nbsp; 02 / Understand &nbsp; 03 / Explore</span></div></div>
     </header>
     <main>
@@ -149,6 +163,7 @@ export default function App() {
           <div className="configuration">
             <label>Report text column<select disabled={busy} value={column} onChange={event => { resetAnalysis(); setColumn(event.target.value); }}>{parsed.columns.map(item => <option key={item}>{item}</option>)}</select></label>
             <label>Regional context (optional)<input disabled={busy} value={region} placeholder="e.g. Alberta, Canada" onChange={event => { resetAnalysis(); setRegion(event.target.value); }} /></label>
+            <label>Country code for place matching (optional)<input disabled={busy} value={countryCode} maxLength={2} placeholder="e.g. CA" onChange={event => { resetAnalysis(); setCountryCode(event.target.value.toUpperCase()); }} /></label>
             <div className="dataset-stat"><strong>{number(inputRows.length)}</strong><span>usable reports · {number(skipped)} blank rows skipped</span></div>
           </div>
           <details className="preview"><summary>Preview selected column</summary>{inputRows.slice(0, 3).map(row => <p key={row.tweet_id}><small>Record {row.source_row}</small>{row.tweet}</p>)}</details>
@@ -161,16 +176,16 @@ export default function App() {
           <span role="status" className="phase">{intakeOpen || busy ? phase : ""}</span>
         </div>
         {busy && <div className="progress" role="progressbar" aria-label="Analysis progress" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: progress + "%" }} /></div>}
-        <p className="baseline-note">Preview uses keyword rules and a limited Alberta gazetteer. Scores are heuristic, not measured accuracy. Other places may remain unmapped. Reports are sent to the local analysis service; refreshing clears this session.</p>
+        <p className="baseline-note">{classifierMode === "service" ? "Classification uses Edward's hosted disaster-relevance model through the Worker. Relevance scores are uncalibrated estimates, not verification or severity." : classifierMode === "preview" ? "Classification uses local keyword preview rules until the Worker classifier secret is configured. Scores are heuristic, not measured accuracy." : classifierMode === "unconfigured" ? "The hosted classifier is only partly configured; classification will fail until both the URL and Worker secret are set." : "Classifier status could not be checked; verify the API before relying on these results."} {locationMode === "service" ? "Location matching uses Mutasim's service. Mentioned places are approximate, not verified incident sites." : locationMode === "preview" ? "Place detection uses a limited Alberta gazetteer until a location service is configured." : locationMode === "unconfigured" ? "The location service is only partly configured; location matching will fail until both its URL and Worker secret are set." : "Location service status could not be checked."} Uploaded report text is processed by this Worker and, when configured, forwarded to those services. Other places may remain unmapped. Refreshing clears this session.</p>
         </div>
-        {!intakeOpen && <div className="action-row"><span role="status">{phase}</span>{failed > 0 && <button className="secondary" onClick={() => analyze(true)}>Retry incomplete reports ({number(failed)})</button>}<small>Baseline interpretation · accuracy not yet evaluated</small></div>}
+        {!intakeOpen && <div className="action-row"><span role="status">{phase}</span>{failed > 0 && <button className="secondary" onClick={() => analyze(true)}>Retry incomplete reports ({number(failed)})</button>}<small>{classifierMode === "service" ? "Hosted classifier · uncalibrated scores" : "Baseline classification · accuracy not yet evaluated"}</small></div>}
       </section>
 
       {results.length > 0 ? <section className="workspace" ref={panel} aria-label="Analysis results">
         <div className="workspace-heading"><div><span className="eyebrow">02 / Your evidence workspace</span><h2>What the reports tell us</h2></div><button className="secondary" onClick={download} disabled={!filtered.length}>Export filtered CSV ↓</button></div>
         <div className="dataset-totals" aria-label="Dataset totals">
           {["relevant", "unrelated", "uncertain"].map(label => <span key={label}><strong>{number(results.filter(row => row.classification?.relevance === label).length)}</strong> {label}</span>)}
-          <span><strong>{number(results.filter(row => !row.classification).length)}</strong> unprocessed</span><span><strong>{number(results.length)}</strong> total</span>
+          <span><strong>{number(results.filter(row => row.classification?.needs_review).length)}</strong> needs review</span><span><strong>{number(results.filter(row => !row.classification).length)}</strong> unprocessed</span><span><strong>{number(results.length)}</strong> total</span>
         </div>
         <div className="filters">
           <label>Search reports<input type="search" placeholder="Search text or place…" value={filters.query} onChange={event => changeFilter("query", event.target.value)} /></label>
@@ -179,7 +194,7 @@ export default function App() {
           <label>Place<select value={filters.location} onChange={event => changeFilter("location", event.target.value)}><option value="all">All places</option>{allPlaces.map(([name]) => <option key={name}>{name}</option>)}</select></label>
         </div>
         <div className="filter-options"><label className="inline"><input type="checkbox" checked={filters.unique} onChange={event => changeFilter("unique", event.target.checked)} /> Unique reports only</label>
-          <label className="inline">Minimum heuristic score <input aria-label="Minimum heuristic score" type="range" min="0" max="1" step=".05" value={filters.minScore} onChange={event => changeFilter("minScore", Number(event.target.value))} /><strong>{Math.round(filters.minScore * 100)}%</strong></label>
+          <label className="inline">Minimum relevance score <input aria-label="Minimum relevance score" type="range" min="0" max="1" step=".05" value={filters.minScore} onChange={event => changeFilter("minScore", Number(event.target.value))} /><strong>{Math.round(filters.minScore * 100)}%</strong></label>
           <button className="text-button" onClick={() => { setFilters({ ...defaultFilters }); setPage(1); }}>Reset filters</button>
         </div>
         <nav className="tabs" aria-label="Analysis views">{(["investigate", "overview", "reports", "map"] as Tab[]).map(item => <button aria-current={tab === item ? "page" : undefined} className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}</button>)}<span className="view-count">{number(filtered.length)} matching reports</span></nav>
@@ -195,7 +210,7 @@ export default function App() {
           {tab === "reports" && <>
             <div className="pagination"><span>{filtered.length ? `${number((activePage - 1) * 30 + 1)}–${number(Math.min(activePage * 30, filtered.length))} of ${number(filtered.length)} reports` : "No matching reports"}</span><div><button className="secondary" disabled={activePage <= 1} onClick={() => setPage(activePage - 1)}>Previous</button><span>Page {activePage} / {pages}</span><button className="secondary" disabled={activePage >= pages} onClick={() => setPage(activePage + 1)}>Next</button></div></div>
             {!visible.length && <div className="empty-state">No reports match. Try another search or reset your filters.</div>}
-            <div className="report-list">{visible.map(row => <article id={row.tweet_id} key={row.tweet_id}><div className="report-meta"><span className={"badge " + (row.classification?.relevance ?? "uncertain")}>{row.classification?.relevance ?? (busy ? "pending" : "unprocessed")}</span><span>Record {row.source_row}</span>{row.classification && <span>Heuristic score: {Math.round(row.classification.relevance_score * 100)}%</span>}{row.duplicate_of && <span>Repeated text</span>}</div><p>{row.tweet}</p><div className="locations">{row.locations.map((loc, index) => <span key={index}>{loc.canonical_name ?? loc.mention} · {loc.status}</span>)}</div>{(row.classification_error || row.location_error) && <p className="error-text">{row.classification_error ?? row.location_error}</p>}<details><summary>Why this result?</summary><p>{row.classification?.reason ?? "Processing did not complete. Retry this report."}</p><small>{row.classification?.model_version} · ID: {row.tweet_id}</small></details></article>)}</div>
+            <div className="report-list">{visible.map(row => <article id={row.tweet_id} key={row.tweet_id}><div className="report-meta"><span className={"badge " + (row.classification?.relevance ?? "uncertain")}>{row.classification?.relevance ?? (busy ? "pending" : "unprocessed")}</span><span>Record {row.source_row}</span>{row.classification && <span>Relevance score: {Math.round(row.classification.relevance_score * 100)}%</span>}{row.classification?.needs_review && <span>Needs review</span>}{row.duplicate_of && <span>Repeated text</span>}</div><p>{row.tweet}</p><div className="locations">{row.locations.map((loc, index) => <span key={index}>{loc.canonical_name ?? loc.mention} · {loc.status}</span>)}</div>{(row.classification_error || row.location_error) && <p className="error-text">{row.classification_error ?? row.location_error}</p>}<details><summary>Why this result?</summary><p>{row.classification?.reason ?? "Processing did not complete. Retry this report."}</p><small>{row.classification?.model_version} · ID: {row.tweet_id}</small></details></article>)}</div>
           </>}
           {tab === "map" && <MapPanel tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} />}
         </div>

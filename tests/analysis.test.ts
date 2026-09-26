@@ -24,7 +24,9 @@ describe("worker contract", () => {
   it("supports the documented 200-report summary but limits classifier batches", async () => {
     const rows = Array.from({ length: 200 }, (_, i) => ({ ...source[0], tweet_id: String(i) }));
     expect((await call("summarize", rows)).status).toBe(200);
-    expect((await call("classify", rows)).status).toBe(400);
+    expect((await call("classify", rows)).status).toBe(200);
+    const tooMany = Array.from({ length: 501 }, (_, i) => ({ ...source[0], tweet_id: String(i) }));
+    expect((await call("classify", tooMany)).status).toBe(400);
   });
   it("rejects malformed and duplicate IDs", async () => {
     expect((await call("classify", [{ tweet_id: "bad" }])).status).toBe(400);

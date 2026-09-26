@@ -16,6 +16,8 @@ export interface Classification {
   category?: string;
   reason?: string;
   model_version: string;
+  needs_review?: boolean;
+  classification_method?: string;
 }
 
 export interface LocationResult {
@@ -38,6 +40,7 @@ export interface ProcessedTweet extends SourceTweet {
 export interface AnalysisContext {
   event_name?: string;
   region?: string;
+  country_code?: string;
 }
 
 export interface BatchRequest {

@@ -271,8 +271,8 @@ def canonicalize_mentions(df_mentions: pd.DataFrame, geocoder: Optional[Geocoder
                 canonical = chosen.get('display_name')
                 inconsistent = False
                 if resolved_context:
-                    min_dist = min([_haversine(lat, lon, c[0], c[1]) for c in resolved_context]) if resolved_context else float('inf')
-                    if min_dist > 500 and 'canada' not in dn and prefer_country.lower() not in dn:
+                    min_dist = min(_haversine(lat, lon, c[0], c[1]) for c in resolved_context)
+                    if min_dist > 500 and (not prefer_country or prefer_country.lower() not in dn):
                         inconsistent = True
                 if inconsistent:
                     resolved_map[mention] = {'chosen': None, 'score': 0.0, 'status': 'ambiguous', 'lat': None, 'lon': None, 'canonical': None}

@@ -1,0 +1,2 @@
+-r requirements-api.txt
+geopy==2.5.0

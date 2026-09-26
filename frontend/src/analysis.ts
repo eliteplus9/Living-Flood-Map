@@ -31,9 +31,9 @@ export function exportCsv(rows: ProcessedTweet[]) {
     return '"' + (/^[=+@\-\t\r]/.test(text) ? "'" + text : text).replaceAll('"', '""') + '"';
   };
   return [
-    ["tweet_id", "source_record", "tweet", "relevance", "heuristic_score", "category", "locations_json", "duplicate_of", "processing_error"].join(","),
+    ["tweet_id", "source_record", "tweet", "relevance", "relevance_score", "category", "needs_review", "classifier_version", "locations_json", "duplicate_of", "processing_error"].join(","),
     ...rows.map(row => [row.tweet_id, row.source_row, row.tweet, row.classification?.relevance ?? "unprocessed",
-      row.classification?.relevance_score, row.classification?.category, JSON.stringify(row.locations), row.duplicate_of,
+      row.classification?.relevance_score, row.classification?.category, row.classification?.needs_review, row.classification?.model_version, JSON.stringify(row.locations), row.duplicate_of,
       row.classification_error ?? row.location_error].map(quote).join(",")),
   ].join("\r\n");
 }
