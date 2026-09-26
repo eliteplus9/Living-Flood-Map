@@ -220,3 +220,11 @@ __marimo__/
 data/*
 !data/.gitkeep
 .env
+
+# Cloudflare frontend and local browser tests
+node_modules/
+dist/
+.wrangler/
+*.tsbuildinfo
+test-results/
+playwright-report/

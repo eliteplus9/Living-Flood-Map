@@ -1,5 +1,35 @@
 # Living Flood Map
 
+## Cloudflare application (Mailles's integration branch)
+
+The active Cloudflare UI lives in `frontend/`, with Worker API routes in
+`worker/` and shared request types in `shared/`. The original Python
+Streamlit scaffold remains below for reference and teammate integration.
+
+With Node.js 22.12+ installed, run:
+
+```bash
+npm install
+npm run verify
+npm run dev:worker
+```
+
+In a second terminal, run `npm run dev`, then open
+`http://localhost:5173`. The app can load the supplied historical CSV
+or an unseen CSV selected in the browser.
+
+The Investigate view links report text, evidence types, map places and
+session-only reviewer annotations. The included classification and location
+logic is a baseline; its scores are heuristics, and its Alberta gazetteer
+covers only selected places. The overview and Markdown briefing state the
+limits of their evidence. See [INTEGRATION.md](INTEGRATION.md) for the
+contract used by teammates' modules.
+
+This branch is a local-review and integration contribution. It does not
+deploy itself or replace teammates' Python work.
+
+---
+
 Thunder Bay AI Hackathon 2026 — Living Flood Map
 
 Overview

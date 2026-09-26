@@ -1,0 +1,205 @@
+import { useMemo, useRef, useState } from "react";
+import type { Classification, LocationResult, ProcessedTweet } from "../../shared/contracts";
+import { processBatches } from "./api";
+import { parseCsv, rowsToTweets, type ParsedCsv } from "./csv";
+import { defaultFilters, exportCsv, filterReports, rankedCounts, type Filters } from "./analysis";
+import MapPanel from "./MapPanel";
+import Investigation from "./Investigation";
+import type { Review } from "../../shared/interpretation";
+
+type Tab = "investigate" | "overview" | "reports" | "map";
+const number = (value: number) => value.toLocaleString();
+
+export default function App() {
+  const [parsed, setParsed] = useState<ParsedCsv>();
+  const [column, setColumn] = useState("tweet");
+  const [fileName, setFileName] = useState("");
+  const [region, setRegion] = useState("");
+  const [results, setResults] = useState<ProcessedTweet[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState("");
+  const [tab, setTab] = useState<Tab>("overview");
+  const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
+  const [page, setPage] = useState(1);
+  const [reviews, setReviews] = useState<Record<string, Review>>({});
+  const [intakeOpen, setIntakeOpen] = useState(true);
+  const [elapsed, setElapsed] = useState<number>();
+  const controller = useRef<AbortController | null>(null);
+  const loadVersion = useRef(0);
+  const panel = useRef<HTMLElement>(null);
+  const inputRows = useMemo(() => parsed ? rowsToTweets(parsed.rows, column) : [], [parsed, column]);
+  const skipped = (parsed?.rows.length ?? 0) - inputRows.length;
+
+  async function acceptFile(file: File, sample = false) {
+    const version = ++loadVersion.current;
+    controller.current?.abort();
+    setBusy(false); setLoading(true); setParsed(undefined); setError(""); setResults([]); setPhase("");
+    setFilters({ ...defaultFilters }); setPage(1);
+    setReviews({}); setElapsed(undefined); setIntakeOpen(true);
+    try {
+      const next = await parseCsv(file);
+      if (version !== loadVersion.current) return;
+      if (!next.rows.length || !next.columns.length) throw new Error("This CSV has no data rows. Include a header and at least one report.");
+      setParsed(next); setColumn(next.columns.find(item => item.toLowerCase() === "tweet") ?? next.columns[0]);
+      setFileName(file.name); setRegion(sample ? "Alberta, Canada" : "");
+    } catch (cause) {
+      if (version === loadVersion.current) setError(cause instanceof Error ? cause.message : String(cause));
+    } finally { if (version === loadVersion.current) setLoading(false); }
+  }
+  async function loadSample() {
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/data/main_contestant.csv");
+      if (!response.ok) throw new Error("Sample could not be loaded. Choose the CSV from your computer.");
+      await acceptFile(new File([await response.blob()], "main_contestant.csv", { type: "text/csv" }), true);
+    } catch (cause) { setLoading(false); setError(String(cause)); }
+  }
+  function resetAnalysis() { controller.current?.abort(); setResults([]); setPhase(""); setBusy(false); }
+  async function analyze(retry = false) {
+    const started = performance.now();
+    if (!inputRows.length) { setError("The selected column contains no usable text."); return; }
+    controller.current?.abort();
+    const control = new AbortController(); controller.current = control;
+    const working: ProcessedTweet[] = retry ? results.map(row => ({ ...row, locations: [...row.locations] })) :
+      inputRows.map(row => ({ ...row, locations: [] }));
+    const byId = new Map(working.map(row => [row.tweet_id, row]));
+    const context = { event_name: "Flood", region: region.trim() };
+    setBusy(true); setError(""); setProgress(0); setPhase("Classifying reports");
+    if (!retry) setReviews({});
+    setResults(working); setPage(1);
+    try {
+      await processBatches<Classification>(working.filter(row => !row.classification), "/api/classify", context,
+        (batch, output, failure) => {
+          const labels = new Map(output.map(item => [item.tweet_id, item]));
+          batch.forEach(row => { const target = byId.get(row.tweet_id)!; target.classification = labels.get(row.tweet_id); target.classification_error = failure; });
+          setResults(working.map(row => ({ ...row })));
+        }, (done, total) => setProgress(done / total * 65), control.signal);
+      setPhase("Resolving mentioned places");
+      const candidates = working.filter(row => row.classification?.relevance === "relevant" &&
+        (!retry || row.location_error || !results.find(old => old.tweet_id === row.tweet_id)?.classification));
+      await processBatches<LocationResult>(candidates, "/api/locations", context,
+        (batch, output, failure) => {
+          batch.forEach(row => {
+            const target = byId.get(row.tweet_id)!;
+            target.locations = output.filter(item => item.tweet_id === row.tweet_id);
+            target.location_error = failure;
+          });
+          setResults(working.map(row => ({ ...row })));
+        }, (done, total) => setProgress(65 + done / total * 35), control.signal);
+      const failed = working.filter(row => !row.classification || row.location_error).length;
+      setProgress(100); setPhase(failed ? `Analysis finished · ${number(failed)} reports need a retry` : "Analysis complete");
+      setElapsed((performance.now() - started) / 1000);
+      setTab("investigate"); setIntakeOpen(false); panel.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (cause) {
+      if (control.signal.aborted) {
+        working.forEach(row => {
+          if (!row.classification) row.classification_error = "Analysis cancelled before classification.";
+          else if (row.classification.relevance === "relevant" && !row.locations.length) row.location_error = "Location step may be incomplete.";
+        });
+        setResults(working.map(row => ({ ...row }))); setPhase("Cancelled · completed results are preserved");
+      } else { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } finally { if (controller.current === control) setBusy(false); }
+  }
+  const filtered = useMemo(() => filterReports(results, filters), [results, filters]);
+  const categories = useMemo(() => rankedCounts(filtered, "category"), [filtered]);
+  const places = useMemo(() => rankedCounts(filtered, "location"), [filtered]);
+  const allCategories = useMemo(() => rankedCounts(results, "category"), [results]);
+  const allPlaces = useMemo(() => rankedCounts(results, "location"), [results]);
+  const failed = results.filter(row => !row.classification || row.location_error).length;
+  const noLocation = filtered.filter(row => row.classification?.relevance === "relevant" && !row.locations.some(loc => loc.status === "resolved")).length;
+  const mapped = filtered.filter(row => row.classification?.relevance === "relevant" && row.locations.some(loc => loc.status === "resolved")).length;
+  const pages = Math.max(1, Math.ceil(filtered.length / 30));
+  const activePage = Math.min(page, pages);
+  const visible = filtered.slice((activePage - 1) * 30, activePage * 30);
+  function changeFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
+    setFilters(current => ({ ...current, [key]: value })); setPage(1);
+  }
+  function download() {
+    const url = URL.createObjectURL(new Blob([exportCsv(filtered)], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = url; link.download = "flood-reports.csv"; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function showEvidence(tweetId: string) {
+    const index = filtered.findIndex(row => row.tweet_id === tweetId);
+    setPage(Math.floor(Math.max(0, index) / 30) + 1); setTab("reports");
+    setTimeout(() => document.getElementById(tweetId)?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+  }
+
+  return <div className="app-shell">
+    <header className="hero">
+      <div className="brand-row"><span className="brand-icon" aria-hidden="true">≈</span><span className="eyebrow">CE Strategies / Community intelligence</span><span className="mode-pill">LOCAL PREVIEW</span></div>
+      <div className="hero-content"><div><h1>The Living<br /><em>Flood Map.</em></h1><p>Find the signal. Understand the impact.<br />See the places behind the reports.</p></div><div className="hero-aside"><span className="eyebrow">From community voices to context</span><p>A shared view for communities, planners, and responders.</p><span>01 / Upload &nbsp; 02 / Understand &nbsp; 03 / Explore</span></div></div>
+    </header>
+    <main>
+      <section className="panel intake" aria-labelledby="intake-heading">
+        <div className="section-heading"><div><span className="step">01</span><h2 id="intake-heading">Start with the reports</h2></div><span className="privacy">CSV · up to 10 MB / 25,000 rows</span></div>
+        {results.length > 0 && !busy && <div className="dataset-switch"><span>{fileName} · {number(results.length)} reports {elapsed !== undefined ? "· " + elapsed.toFixed(1) + " seconds processing" : ""}</span><button className="text-button" onClick={() => setIntakeOpen(value => !value)}>{intakeOpen ? "Collapse dataset settings" : "Change dataset / settings"}</button></div>}
+        <div hidden={!intakeOpen && !busy}>
+        <div className="upload-row">
+          <label className="upload-box" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (!busy && !loading && event.dataTransfer.files[0]) void acceptFile(event.dataTransfer.files[0]); }}>
+            <span className="upload-icon" aria-hidden="true">↑</span><strong>{loading ? "Reading dataset…" : fileName || "Choose a CSV or drop it here"}</strong><span>One social report per row. Select your text column after upload.</span>
+            <input aria-label="Upload CSV" disabled={busy || loading} type="file" accept=".csv,text/csv" onChange={event => { if (event.target.files?.[0]) void acceptFile(event.target.files[0]); event.target.value = ""; }} />
+          </label>
+          <div className="sample-card"><span className="eyebrow">Try the supplied dataset</span><strong>Alberta flood reports</strong><p>8,024 posts · historical dataset</p><button className="secondary" disabled={busy || loading} onClick={loadSample}>Use supplied dataset</button></div>
+        </div>
+        {parsed && <>
+          <div className="configuration">
+            <label>Report text column<select disabled={busy} value={column} onChange={event => { resetAnalysis(); setColumn(event.target.value); }}>{parsed.columns.map(item => <option key={item}>{item}</option>)}</select></label>
+            <label>Regional context (optional)<input disabled={busy} value={region} placeholder="e.g. Alberta, Canada" onChange={event => { resetAnalysis(); setRegion(event.target.value); }} /></label>
+            <div className="dataset-stat"><strong>{number(inputRows.length)}</strong><span>usable reports · {number(skipped)} blank rows skipped</span></div>
+          </div>
+          <details className="preview"><summary>Preview selected column</summary>{inputRows.slice(0, 3).map(row => <p key={row.tweet_id}><small>Record {row.source_row}</small>{row.tweet}</p>)}</details>
+          {parsed.warnings.length > 0 && <div className="alert warning">{parsed.warnings.join(" ")}</div>}
+        </>}
+        {error && <div className="alert error" role="alert">{error}</div>}
+        <div className="action-row"><button className="primary" disabled={!inputRows.length || busy || loading} onClick={() => analyze()}>{busy ? "Analysis in progress…" : results.length ? "Run analysis again" : "Analyze dataset"} <span aria-hidden="true">↗</span></button>
+          {busy && <button className="secondary" onClick={() => controller.current?.abort()}>Cancel analysis</button>}
+          {!busy && failed > 0 && <button className="secondary" onClick={() => analyze(true)}>Retry incomplete reports ({number(failed)})</button>}
+          <span role="status" className="phase">{intakeOpen || busy ? phase : ""}</span>
+        </div>
+        {busy && <div className="progress" role="progressbar" aria-label="Analysis progress" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: progress + "%" }} /></div>}
+        <p className="baseline-note">Preview uses keyword rules and a limited Alberta gazetteer. Scores are heuristic, not measured accuracy. Other places may remain unmapped. Reports are sent to the local analysis service; refreshing clears this session.</p>
+        </div>
+        {!intakeOpen && <div className="action-row"><span role="status">{phase}</span>{failed > 0 && <button className="secondary" onClick={() => analyze(true)}>Retry incomplete reports ({number(failed)})</button>}<small>Baseline interpretation · accuracy not yet evaluated</small></div>}
+      </section>
+
+      {results.length > 0 ? <section className="workspace" ref={panel} aria-label="Analysis results">
+        <div className="workspace-heading"><div><span className="eyebrow">02 / Your evidence workspace</span><h2>What the reports tell us</h2></div><button className="secondary" onClick={download} disabled={!filtered.length}>Export filtered CSV ↓</button></div>
+        <div className="dataset-totals" aria-label="Dataset totals">
+          {["relevant", "unrelated", "uncertain"].map(label => <span key={label}><strong>{number(results.filter(row => row.classification?.relevance === label).length)}</strong> {label}</span>)}
+          <span><strong>{number(results.filter(row => !row.classification).length)}</strong> unprocessed</span><span><strong>{number(results.length)}</strong> total</span>
+        </div>
+        <div className="filters">
+          <label>Search reports<input type="search" placeholder="Search text or place…" value={filters.query} onChange={event => changeFilter("query", event.target.value)} /></label>
+          <label>Relevance<select value={filters.relevance} onChange={event => changeFilter("relevance", event.target.value)}><option value="all">All reports</option><option value="relevant">Relevant</option><option value="uncertain">Uncertain</option><option value="unrelated">Unrelated</option><option value="failed">Unprocessed</option></select></label>
+          <label>Category<select value={filters.category} onChange={event => changeFilter("category", event.target.value)}><option value="all">All categories</option>{allCategories.map(([name]) => <option key={name}>{name}</option>)}</select></label>
+          <label>Place<select value={filters.location} onChange={event => changeFilter("location", event.target.value)}><option value="all">All places</option>{allPlaces.map(([name]) => <option key={name}>{name}</option>)}</select></label>
+        </div>
+        <div className="filter-options"><label className="inline"><input type="checkbox" checked={filters.unique} onChange={event => changeFilter("unique", event.target.checked)} /> Unique reports only</label>
+          <label className="inline">Minimum heuristic score <input aria-label="Minimum heuristic score" type="range" min="0" max="1" step=".05" value={filters.minScore} onChange={event => changeFilter("minScore", Number(event.target.value))} /><strong>{Math.round(filters.minScore * 100)}%</strong></label>
+          <button className="text-button" onClick={() => { setFilters({ ...defaultFilters }); setPage(1); }}>Reset filters</button>
+        </div>
+        <nav className="tabs" aria-label="Analysis views">{(["investigate", "overview", "reports", "map"] as Tab[]).map(item => <button aria-current={tab === item ? "page" : undefined} className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}</button>)}<span className="view-count">{number(filtered.length)} matching reports</span></nav>
+        <div className="view-content">
+          {tab === "investigate" && <Investigation rows={filtered} scope={(filters.location === "all" ? "All communities" : filters.location) + (filters.query ? " · Search: " + filters.query : "") + " · " + filters.relevance + (filters.unique ? " · unique texts" : " · all rows")}
+            onPlace={name => changeFilter("location", name)} reviews={reviews} onReview={(id, review) => setReviews(current => ({ ...current, [id]: review }))} />}
+          {tab === "overview" && <>
+            <div className="metric-grid">{[["Matching reports", filtered.length], ["Relevant reports mapped", mapped], ["Places mentioned", places.length], ["Relevant without a map point", noLocation]].map(([label, count]) => <article key={label}><span>{label}</span><strong>{number(count as number)}</strong></article>)}</div>
+            <div className="summary-card"><span className="eyebrow">Overview of the current selection</span><p>{filtered.length ? `Across ${number(filtered.length)} selected reports, ${number(mapped)} relevant reports mention a mapped place. ${places.length ? "The most mentioned places are " + places.slice(0, 3).map(([name, count]) => name + " (" + number(count) + ")").join(", ") + "." : "No resolved places are present in this selection."}` : "No reports match these filters. Clear your search or reset the filters to explore the dataset."}</p><small>Computed from every matching report. Mention counts describe reporting activity, not flood severity or verified incidents.</small></div>
+            <div className="breakdowns">{[[categories, "Report categories"], [places, "Mentioned places"]].map(([entries, title]) => <section key={title as string}><h3>{title as string}</h3>{(entries as [string, number][]).slice(0, 6).map(([name, count]) => <div className="bar-row" key={name}><span>{name}</span><div><i style={{ width: (count / Math.max(1, filtered.length) * 100) + "%" }} /></div><strong>{number(count)}</strong></div>)}{!(entries as unknown[]).length && <p className="muted">Nothing to display for this selection.</p>}</section>)}</div>
+            <h3>Source evidence</h3><div className="evidence-grid">{filtered.slice(0, 3).map(row => <button key={row.tweet_id} onClick={() => showEvidence(row.tweet_id)}><small>Record {row.source_row} ↗</small><p>{row.tweet}</p></button>)}</div>
+          </>}
+          {tab === "reports" && <>
+            <div className="pagination"><span>{filtered.length ? `${number((activePage - 1) * 30 + 1)}–${number(Math.min(activePage * 30, filtered.length))} of ${number(filtered.length)} reports` : "No matching reports"}</span><div><button className="secondary" disabled={activePage <= 1} onClick={() => setPage(activePage - 1)}>Previous</button><span>Page {activePage} / {pages}</span><button className="secondary" disabled={activePage >= pages} onClick={() => setPage(activePage + 1)}>Next</button></div></div>
+            {!visible.length && <div className="empty-state">No reports match. Try another search or reset your filters.</div>}
+            <div className="report-list">{visible.map(row => <article id={row.tweet_id} key={row.tweet_id}><div className="report-meta"><span className={"badge " + (row.classification?.relevance ?? "uncertain")}>{row.classification?.relevance ?? (busy ? "pending" : "unprocessed")}</span><span>Record {row.source_row}</span>{row.classification && <span>Heuristic score: {Math.round(row.classification.relevance_score * 100)}%</span>}{row.duplicate_of && <span>Repeated text</span>}</div><p>{row.tweet}</p><div className="locations">{row.locations.map((loc, index) => <span key={index}>{loc.canonical_name ?? loc.mention} · {loc.status}</span>)}</div>{(row.classification_error || row.location_error) && <p className="error-text">{row.classification_error ?? row.location_error}</p>}<details><summary>Why this result?</summary><p>{row.classification?.reason ?? "Processing did not complete. Retry this report."}</p><small>{row.classification?.model_version} · ID: {row.tweet_id}</small></details></article>)}</div>
+          </>}
+          {tab === "map" && <MapPanel tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} />}
+        </div>
+      </section> : <section className="welcome"><span className="eyebrow">A clearer view of community reports</span><div>{[["01", "Separate signal", "Find flood-related reports within everyday social chatter."], ["02", "Keep the evidence", "Read the original posts behind every count and mapped place."], ["03", "Understand the place", "Explore mentioned communities while keeping uncertainty visible."]].map(([step, title, copy]) => <article key={step}><span>{step}</span><h3>{title}</h3><p>{copy}</p></article>)}</div></section>}
+    </main><footer><strong>Living Flood Map</strong><span>Historical social reports for situational awareness. Verify critical information with official sources.</span></footer>
+  </div>;
+}
