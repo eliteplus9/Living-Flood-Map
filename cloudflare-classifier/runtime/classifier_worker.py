@@ -48,5 +48,9 @@ class Default(WorkerEntrypoint):
             return Response.json({"results": json.loads(result.to_json(orient="records", double_precision=15)),
                                   "classifier_version": load_model().version},
                                  headers={"Cache-Control": "no-store"})
-        except Exception:
+        except Exception as error:
+            # Record the failure class and code location without uploaded text or secrets.
+            import traceback
+            frames = traceback.extract_tb(error.__traceback__)
+            print("Service failure", type(error).__name__, [(frame.filename, frame.lineno, frame.name) for frame in frames])
             return Response.json({"error": "Classifier unavailable."}, status=503)

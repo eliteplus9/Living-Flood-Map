@@ -15,8 +15,6 @@ class PrefetchedGeocoder(Geocoder):
 
 
 async def locate(rows, country, gateway):
-    from js import Object
-    from pyodide.ffi import to_js
     mentions = batch_extract_locations(pd.DataFrame(rows))
     if mentions.empty:
         return {"results": [], "warnings": [], "model_version": "mutasim-locationiq-v1"}
@@ -29,9 +27,9 @@ async def locate(rows, country, gateway):
             candidates[(name, country or "")] = []
             continue
         for code in ([country.lower(), ""] if country else [""]):
-            response = await gateway.fetch("https://geocoder.internal/search", to_js({"method": "POST",
-                "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"mention": name, "country": code or None})}, dict_converter=Object.fromEntries))
+            response = await gateway.fetch("https://geocoder.internal/search", method="POST",
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({"mention": name, "country": code or None}))
             if not response.ok:
                 raise RuntimeError("Geocoding provider unavailable or daily safety cap reached.")
             raw = json.loads(await response.text())
