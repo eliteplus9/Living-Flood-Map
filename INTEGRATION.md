@@ -3,7 +3,8 @@
 Mutasim's shared repository is the source of truth. Roles are flexible; the current leads are Edward for classification, Mutasim for locations/map, and Mailles for UI/integration/deployment.
 
 This integration branch merges the latest classifier and location PR heads
-into the tested Cloudflare UI. It is not deployed. Edward's separate
+into the tested Cloudflare UI. The app and private services are deployed under
+the eliteplus9 Cloudflare account. Edward's separate
 map/3D experiment is intentionally not merged; only its safe coordinate-grouping
 idea was adapted into the existing map.
 
