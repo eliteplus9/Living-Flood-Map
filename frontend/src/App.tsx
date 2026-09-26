@@ -148,7 +148,7 @@ export default function App() {
 
   return <div className="app-shell">
     <header className="app-bar">
-      <h1><span aria-hidden="true">≈</span> Living Flood Map</h1>
+      <h1>Living Flood Map</h1>
       <nav className="tabs" aria-label="Analysis views">{(["map", "reports", "investigate", "overview"] as Tab[]).map(item => <button aria-current={tab === item ? "page" : undefined} className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}</button>)}</nav>
       <button className="secondary dataset-button" aria-expanded={intakeOpen} aria-controls="dataset-panel" onClick={() => setIntakeOpen(value => !value)}>{parsed ? "Dataset / settings" : "Upload CSV"}</button>
     </header>
