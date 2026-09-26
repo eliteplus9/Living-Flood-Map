@@ -24,6 +24,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState("");
   const [tab, setTab] = useState<Tab>("investigate");
+  const [mapOpened, setMapOpened] = useState(false);
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
   const [page, setPage] = useState(1);
   const [reviews, setReviews] = useState<Record<string, Review>>({});
@@ -149,7 +150,7 @@ export default function App() {
   return <div className="app-shell">
     <header className="app-bar">
       <h1>Living Flood Map</h1>
-      <nav className="tabs" aria-label="Analysis views">{(["investigate", "map", "reports", "overview"] as Tab[]).map(item => <button aria-current={tab === item ? "page" : undefined} className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}</button>)}</nav>
+      <nav className="tabs" aria-label="Analysis views">{(["investigate", "map", "reports", "overview"] as Tab[]).map(item => <button aria-current={tab === item ? "page" : undefined} className={tab === item ? "active" : ""} key={item} onClick={() => { if (item === "map") setMapOpened(true); setTab(item); }}>{item}</button>)}</nav>
       <button className="secondary dataset-button" aria-expanded={intakeOpen} aria-controls="dataset-panel" onClick={() => setIntakeOpen(value => !value)}>{parsed ? "Dataset / settings" : "Upload CSV"}</button>
     </header>
     <main>
@@ -232,8 +233,8 @@ export default function App() {
               <div className="locations">{row.locations.map((loc, index) => <span key={index}>{loc.canonical_name ?? loc.mention} · {loc.status}</span>)}</div>{(row.classification_error || row.location_error) && <p className="error-text">{row.classification_error ?? row.location_error}</p>}<details><summary>Why this result?</summary><p>{row.classification?.reason ?? "Processing did not complete. Retry this report."}</p><small>{row.classification?.model_version} · ID: {row.tweet_id}</small></details>
             </article>)}</div>
           </>}
-          <div className="map-stage" hidden={tab !== "map"}><MapPanel key={loadVersion.current} processing={busy} tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} activeTweetId={activeTweetId} />
-          </div>
+          {mapOpened && <div className="map-stage" hidden={tab !== "map"}><MapPanel key={loadVersion.current} processing={busy} tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} activeTweetId={activeTweetId} />
+          </div>}
         </div>
       </section>
     </main><footer><span>{fileName || "No dataset"} · Mentioned places, not verified incidents</span>{locationMode === "service" && <a href="https://locationiq.com" target="_blank" rel="noopener noreferrer">Search by LocationIQ.com</a>}</footer>
