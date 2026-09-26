@@ -1,0 +1,10 @@
+streamlit>=1.24
+pandas>=2.0
+sentence-transformers>=2.2
+chromadb>=0.3
+geopy>=2.3
+folium>=0.14
+streamlit-folium>=0.12
+openai>=1.0
+google-generativeai>=0.3
+python-dotenv>=1.0
