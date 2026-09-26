@@ -13,20 +13,20 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("opens on the map with compact navigation and optional dataset setup", async ({ page }) => {
+test("opens on Investigate with an integrated dataset starter", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator(".leaflet-container")).toBeVisible();
-  await expect(page.getByRole("button", { name: "map", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".dataset-start")).toBeVisible();
+  await expect(page.getByRole("button", { name: "investigate", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.locator("#dataset-panel")).toBeHidden();
   await expect(page.locator(".hero, .welcome")).toHaveCount(0);
-  await page.screenshot({ path: "test-results/map-first-desktop.png", fullPage: true });
-  await page.getByRole("button", { name: "Upload CSV", exact: true }).click();
+  await page.screenshot({ path: "test-results/investigate-start-desktop.png", fullPage: true });
+  await page.getByRole("button", { name: "Choose a CSV", exact: true }).click();
   await expect(page.locator("#dataset-panel")).toBeVisible();
   await page.getByRole("button", { name: "Close settings" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".leaflet-container")).toBeVisible();
+  await expect(page.locator(".dataset-start")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
-  await page.screenshot({ path: "test-results/map-first-mobile.png", fullPage: true });
+  await page.screenshot({ path: "test-results/investigate-start-mobile.png", fullPage: true });
 });
 
 test("streamed locations preserve manual zoom and tab navigation preserves the map", async ({ page }) => {
@@ -46,6 +46,7 @@ test("streamed locations preserve manual zoom and tab navigation preserves the m
   const tweets = Array.from({ length: 21 }, (_, i) => `Flood warning in ${i < 10 ? "Calgary" : "Edmonton"} report ${i}`);
   await page.getByLabel("Upload CSV").setInputFiles({ name: "stream.csv", mimeType: "text/csv", buffer: Buffer.from("tweet\n" + tweets.join("\n")) });
   await page.getByRole("button", { name: "Analyze dataset" }).click();
+  await page.getByRole("button", { name: "map", exact: true }).click();
   const map = page.locator(".map-stage .leaflet-container");
   await expect(map.locator("path.leaflet-interactive")).toHaveCount(1);
   const marker = map.locator("path.leaflet-interactive").first();

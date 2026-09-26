@@ -4,7 +4,7 @@
   background: #f5f7f7;
   font-synthesis: none;
 }
-/* The map is the entry point; dataset setup lives in a dismissible panel. */
+/* Dataset setup lives in a dismissible panel. */
 [hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .app-bar { display: flex; align-items: center; gap: 28px; padding: 0 24px; height: 68px; background: white; border-bottom: 1px solid #d9e1df; }
@@ -27,6 +27,12 @@
 .app-shell #report-filters .filter-options { padding: 8px 0 0; }
 .app-shell .map-workspace > .view-content { padding: 0; }
 .map-stage { position: relative; }
+.dataset-start { width: min(100%, 640px); margin: clamp(24px, 6vh, 64px) auto; padding: clamp(20px, 4vw, 36px); border: 1px solid #d7dfda; border-radius: 8px; background: white; }
+.dataset-start h2 { margin: 0; font-family: inherit; font-size: 1.25rem; }
+.dataset-start p { margin: 12px 0 24px; color: #62756f; font-size: 1rem; line-height: 1.6; }
+.dataset-start > div { display: flex; gap: 12px; flex-wrap: wrap; }
+.dataset-start .primary { margin: 0; }
+.dataset-start small { display: block; margin-top: 20px; color: #6b7a74; font-size: .875rem; }
 .map-stage > .map { height: calc(100dvh - 222px); min-height: 390px; border-radius: 0; background: #dce5e5; }
 .map-stage > .map-note { position: absolute; top: 12px; left: 58px; z-index: 450; margin: 0; padding: 8px 12px; background: #fffffff0; border: 1px solid #dce4e1; border-radius: 5px; font-size: 11px; pointer-events: none; }
 .map-start { position: absolute; top: 64px; left: 24px; z-index: 450; width: 310px; padding: 20px; border: 1px solid #d7dfda; border-radius: 8px; background: white; box-shadow: 0 4px 18px #193b3c15; }

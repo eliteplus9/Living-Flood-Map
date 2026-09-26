@@ -23,7 +23,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState("");
-  const [tab, setTab] = useState<Tab>("map");
+  const [tab, setTab] = useState<Tab>("investigate");
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
   const [page, setPage] = useState(1);
   const [reviews, setReviews] = useState<Record<string, Review>>({});
@@ -84,7 +84,7 @@ export default function App() {
       inputRows.map(row => ({ ...row, locations: [] }));
     const byId = new Map(working.map(row => [row.tweet_id, row]));
     const context = { event_name: "Flood", region: region.trim(), country_code: countryCode.trim().toUpperCase() || undefined };
-    setBusy(true); setError(""); setProgress(0); setPhase("Classifying reports"); setIntakeOpen(false); setTab("map");
+    setBusy(true); setError(""); setProgress(0); setPhase("Classifying reports"); setIntakeOpen(false);
     if (!retry) setReviews({});
     setResults(working); setPage(1);
     try {
@@ -149,7 +149,7 @@ export default function App() {
   return <div className="app-shell">
     <header className="app-bar">
       <h1>Living Flood Map</h1>
-      <nav className="tabs" aria-label="Analysis views">{(["map", "reports", "investigate", "overview"] as Tab[]).map(item => <button aria-current={tab === item ? "page" : undefined} className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}</button>)}</nav>
+      <nav className="tabs" aria-label="Analysis views">{(["investigate", "map", "reports", "overview"] as Tab[]).map(item => <button aria-current={tab === item ? "page" : undefined} className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}</button>)}</nav>
       <button className="secondary dataset-button" aria-expanded={intakeOpen} aria-controls="dataset-panel" onClick={() => setIntakeOpen(value => !value)}>{parsed ? "Dataset / settings" : "Upload CSV"}</button>
     </header>
     <main>
@@ -209,7 +209,13 @@ export default function App() {
         </div>
         </div>
         <div className="view-content">
-          {tab === "investigate" && <Investigation rows={filtered} scope={(filters.location === "all" ? "All communities" : filters.location) + (filters.query ? " · Search: " + filters.query : "") + " · " + filters.relevance + (filters.unique ? " · unique texts" : " · all rows")}
+          {tab === "investigate" && !results.length && <section className="dataset-start" aria-labelledby="start-heading">
+            <h2 id="start-heading">{parsed ? "Dataset ready" : "No dataset loaded"}</h2>
+            <p>{parsed ? `${fileName} is ready to analyze.` : "Upload a CSV to investigate reports and explore the places they mention."}</p>
+            <div><button className="primary" onClick={() => setIntakeOpen(true)}>{parsed ? "Review dataset & analyze" : "Choose a CSV"}</button><button className="secondary" disabled={loading} onClick={loadSample}>{loading ? "Loading dataset…" : "Use supplied dataset"}</button></div>
+            <small>Sample: Alberta floods, 2013</small>
+          </section>}
+          {tab === "investigate" && results.length > 0 && <Investigation rows={filtered} scope={(filters.location === "all" ? "All communities" : filters.location) + (filters.query ? " · Search: " + filters.query : "") + " · " + filters.relevance + (filters.unique ? " · unique texts" : " · all rows")}
             processing={busy} onPlace={name => changeFilter("location", name)} reviews={reviews} onReview={(id, review) => setReviews(current => ({ ...current, [id]: review }))} />}
           {tab === "overview" && <>
             <div className="metric-grid">{[["Matching reports", filtered.length], ["Relevant reports mapped", mapped], ["Places mentioned", places.length], ["Relevant without a map point", noLocation]].map(([label, count]) => <article key={label}><span>{label}</span><strong>{number(count as number)}</strong></article>)}</div>
@@ -227,7 +233,6 @@ export default function App() {
             </article>)}</div>
           </>}
           <div className="map-stage" hidden={tab !== "map"}><MapPanel key={loadVersion.current} processing={busy} tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} activeTweetId={activeTweetId} />
-            {!results.length && <div className="map-start"><strong>No dataset loaded</strong><p>Upload a CSV to map its reports.</p><div><button className="primary" onClick={() => setIntakeOpen(true)}>Choose a CSV</button><button className="secondary" disabled={loading} onClick={loadSample}>Use supplied dataset</button></div><small>Sample: Alberta floods, 2013</small></div>}
           </div>
         </div>
       </section>
