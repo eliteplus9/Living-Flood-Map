@@ -1,0 +1,39 @@
+{
+  "rows": 8024,
+  "dataset_sha256": "98129ddae881c7d79f0cfec83874d4881c2ec0aea6444ef942ae4d53beff9ebc",
+  "read_seconds": 0.06631695898249745,
+  "classification_seconds": 0.2570577079895884,
+  "relevant_rows": 4221,
+  "needs_review_rows": 456,
+  "duplicate_rows": 545,
+  "sample_size": 60,
+  "sample_label_origin": "60 fixed random supplied rows (pandas random_state=26), reviewed by Codex before inference. Provisional AI-reviewed relevance labels, not independent human ground truth. Broad relevance includes recovery, solidarity and flood discussion; ordinary weather/chatter is unrelated. This sample subsequently informed development; results are a development sanity check, not an unbiased benchmark.",
+  "sample_metrics": {
+    "accuracy": 0.9833333333333333,
+    "precision": 1.0,
+    "recall": 0.967741935483871,
+    "f1": 0.9836065573770492,
+    "tp": 30,
+    "fp": 0,
+    "fn": 1,
+    "tn": 29
+  },
+  "original_keyword_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tp": 31,
+    "fp": 0,
+    "fn": 0,
+    "tn": 29
+  },
+  "sample_errors": [
+    {
+      "source_row": 2473,
+      "expected": true,
+      "actual": false,
+      "score": 0.26055407253445423
+    }
+  ]
+}

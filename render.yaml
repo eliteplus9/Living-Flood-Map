@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: living-flood-classifier
+    runtime: docker
+    branch: edward/classification
+    dockerfilePath: ./Dockerfile.classifier
+    plan: free
+    autoDeployTrigger: off
+    healthCheckPath: /health
+    envVars:
+      - key: CLASSIFIER_API_KEY
+        generateValue: true
