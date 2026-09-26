@@ -8,7 +8,7 @@ __version__ = "0.1.0"
 
 from .data import load_data, read_uploaded_csv
 from .classify import classify_tweets
-from .locations import extract_locations
-from .geocode import geocode_locations
-from .map_view import create_map
+from .locations import extract_locations, batch_extract_locations
+from .geocode import Geocoder
+from .map_view import create_map_from_rows
 from .rag import semantic_search, summarize_reports

@@ -220,3 +220,5 @@ __marimo__/
 data/*
 !data/.gitkeep
 .env
+
+demo/demo_map.html
