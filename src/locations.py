@@ -16,6 +16,21 @@ from src.geocode import Geocoder, _haversine
 # a list of zero-or-more extracted location strings.
 Extractor = Callable[[str], List[str]]
 
+# Supplemental place vocabulary, not coordinates or disaster relevance cues.
+# General extraction and contextual geocoding still handle other regions.
+NORTHERN_ONTARIO_PLACES = (
+    "Fort Frances", "Nipigon", "Thunder Bay", "Atikokan", "Kenora", "Dryden",
+    "Red Lake", "Sioux Lookout", "Schreiber", "Terrace Bay", "Geraldton",
+    "Longlac", "Hearst", "Kapuskasing", "Cochrane", "Timmins", "Sudbury",
+    "North Bay", "Sault Ste. Marie", "Elliot Lake", "Wawa", "Ignace",
+    "Manitouwadge", "Temiskaming Shores", "Rainy River", "Marathon", "Emo",
+    "Sioux Narrows", "Pickle Lake", "Moosonee", "Moonbeam", "Smooth Rock Falls",
+)
+_NORTHERN_PLACE_PATTERNS = [
+    (name, re.compile(r"(?<!\w)" + r"[\s_-]*".join(re.escape(part) for part in name.split()) + r"(?!\w)", re.IGNORECASE))
+    for name in NORTHERN_ONTARIO_PLACES
+]
+
 
 def _default_extractor(text: str) -> List[str]:
     """Basic heuristic extractor that finds capitalized word sequences
@@ -27,11 +42,22 @@ def _default_extractor(text: str) -> List[str]:
     if not isinstance(text, str) or not text:
         return []
 
-    # common preposition patterns
-    prep_patterns = [r"\bin\s+([A-Z][A-Za-z0-9&'\-\.\s]{2,})",
-                     r"\bnear\s+([A-Z][A-Za-z0-9&'\-\.\s]{2,})",
-                     r"\bat\s+([A-Z][A-Za-z0-9&'\-\.\s]{2,})"]
+    # Don't turn place names embedded in URLs into map evidence.
+    text = re.sub(r"https?://\S+|www\.\S+", " ", text, flags=re.IGNORECASE)
     results = []
+    for name, pattern in _NORTHERN_PLACE_PATTERNS:
+        for match in pattern.finditer(text):
+            # These names also occur as ordinary words; require geographic wording.
+            if name in {"Marathon", "Emo", "Moonbeam"} and not (
+                text[max(0, match.start() - 1):match.start()] == "#" or
+                re.search(r"\b(?:in|near|at|from|to|around)\s+$", text[:match.start()], re.IGNORECASE)
+            ):
+                continue
+            results.append(name)
+    # Stop at lowercase prose instead of sending "Nipigon roads are flooded"
+    # as a place query. Retain general extraction outside the vocabulary above.
+    word = r"[A-Z][A-Za-z0-9&'\-\.]*"
+    prep_patterns = [r"\b(?:in|near|at)\s+(" + word + r"(?:\s+" + word + r")*)"]
     for p in prep_patterns:
         for m in re.findall(p, text):
             candidate = m.strip(' .,!;:\n')
@@ -49,8 +75,8 @@ def _default_extractor(text: str) -> List[str]:
     seen = set()
     uniq = []
     for r in results:
-        if r not in seen:
-            seen.add(r)
+        if r.casefold() not in seen:
+            seen.add(r.casefold())
             uniq.append(r)
     return uniq
 

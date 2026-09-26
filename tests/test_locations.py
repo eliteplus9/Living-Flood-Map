@@ -97,3 +97,35 @@ def test_global_default_handles_distant_places_without_country_bias():
     output = canonicalize_mentions(mentions, geocoder=FakeGeocoder())
     assert len(output) == 2
     assert set(output['status']).issubset({'resolved', 'ambiguous', 'unresolved'})
+
+
+def test_northern_ontario_extraction_handles_case_hashtags_and_single_word_towns():
+    from src.locations import extract_locations
+    for text, expected in [
+        ("flood warning: fort frances and nipigon", {"Fort Frances", "Nipigon"}),
+        ("Nipigon roads are flooded", {"Nipigon"}),
+        ("Evacuations #FortFrances #SiouxLookout #RedLake", {"Fort Frances", "Sioux Lookout", "Red Lake"}),
+        ("Road washed out near Atikokan and Kenora", {"Atikokan", "Kenora"}),
+        ("flood warning in marathon and near emo", {"Marathon", "Emo"}),
+    ]:
+        assert expected.issubset(set(extract_locations(text)))
+    assert extract_locations("flooding in Nipigon roads are closed") == ["Nipigon"]
+    assert extract_locations("my movie marathon and emo playlist") == []
+    assert extract_locations("https://example.com/nipigon/fort-frances") == []
+    assert "Tokyo" in extract_locations("Flood warning in Tokyo today")
+
+
+def test_northern_towns_preserve_source_ids_and_do_not_define_relevance():
+    from src.locations import batch_extract_locations
+    from src.classify import classify_tweets
+    source = pd.DataFrame([
+        {"tweet_id": "north-1", "tweet": "Flood warning in Fort Frances"},
+        {"tweet_id": "north-2", "tweet": "Flood warning in Nipigon"},
+        {"tweet_id": "north-3", "tweet": "Coffee and a movie in Nipigon"},
+    ])
+    output = classify_tweets(source)
+    assert output.iloc[0].is_relevant and output.iloc[1].is_relevant
+    assert not output.iloc[2].is_relevant
+    mentions = batch_extract_locations(source)
+    assert set(mentions.tweet_id) == {"north-1", "north-2", "north-3"}
+    assert mentions.loc[mentions.tweet_id == "north-1", "tweet"].iloc[0] == source.iloc[0].tweet
