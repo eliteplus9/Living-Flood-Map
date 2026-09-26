@@ -28,6 +28,46 @@ test("opens on the map with compact navigation and optional dataset setup", asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: "test-results/map-first-mobile.png", fullPage: true });
 });
+
+test("streamed locations preserve manual zoom and tab navigation preserves the map", async ({ page }) => {
+  let releaseSecond!: () => void;
+  const secondGate = new Promise<void>(resolve => { releaseSecond = resolve; });
+  let locationCalls = 0;
+  await page.route("**/api/locations", async route => {
+    locationCalls++;
+    if (locationCalls === 2) await secondGate;
+    const incoming = route.request();
+    const response = await worker.fetch(new Request(incoming.url(), {
+      method: "POST", body: incoming.postData(),
+    }), {} as Parameters<typeof worker.fetch>[1]);
+    await route.fulfill({ status: response.status, contentType: "application/json", body: await response.text() });
+  });
+  await page.goto("/");
+  const tweets = Array.from({ length: 21 }, (_, i) => `Flood warning in ${i < 10 ? "Calgary" : "Edmonton"} report ${i}`);
+  await page.getByLabel("Upload CSV").setInputFiles({ name: "stream.csv", mimeType: "text/csv", buffer: Buffer.from("tweet\n" + tweets.join("\n")) });
+  await page.getByRole("button", { name: "Analyze dataset" }).click();
+  const map = page.locator(".map-stage .leaflet-container");
+  await expect(map.locator("path.leaflet-interactive")).toHaveCount(1);
+  const marker = map.locator("path.leaflet-interactive").first();
+  const unzoomed = await marker.getAttribute("d");
+  await map.locator(".leaflet-control-zoom-in").click();
+  // Wait for Leaflet's zoom animation to settle before comparing geographic geometry.
+  await expect(marker).not.toHaveAttribute("d", unzoomed!);
+  await expect(map).not.toHaveClass(/leaflet-zoom-anim/);
+  const before = await marker.getAttribute("d");
+  // Groups are sorted by report count, so their DOM order may change as batches arrive.
+  const unchangedMarker = map.locator(`path.leaflet-interactive[d="${before}"]`);
+  releaseSecond();
+  await expect(page.getByText("Analysis complete", { exact: true })).toBeVisible();
+  await expect(map.locator("path.leaflet-interactive")).toHaveCount(2);
+  await expect(unchangedMarker).toHaveCount(1);
+  await page.getByRole("button", { name: "reports", exact: true }).click();
+  await page.locator(".tweet-text").first().click();
+  await page.getByRole("button", { name: "map", exact: true }).click();
+  await expect(unchangedMarker).toHaveCount(1);
+  await map.getByRole("button", { name: "Fit places" }).click();
+  await expect(unchangedMarker).toHaveCount(0);
+});
 test("complete supplied dataset, linked views, export, mobile layout", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));

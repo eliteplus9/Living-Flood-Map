@@ -210,7 +210,7 @@ export default function App() {
         </div>
         <div className="view-content">
           {tab === "investigate" && <Investigation rows={filtered} scope={(filters.location === "all" ? "All communities" : filters.location) + (filters.query ? " · Search: " + filters.query : "") + " · " + filters.relevance + (filters.unique ? " · unique texts" : " · all rows")}
-            onPlace={name => changeFilter("location", name)} reviews={reviews} onReview={(id, review) => setReviews(current => ({ ...current, [id]: review }))} />}
+            processing={busy} onPlace={name => changeFilter("location", name)} reviews={reviews} onReview={(id, review) => setReviews(current => ({ ...current, [id]: review }))} />}
           {tab === "overview" && <>
             <div className="metric-grid">{[["Matching reports", filtered.length], ["Relevant reports mapped", mapped], ["Places mentioned", places.length], ["Relevant without a map point", noLocation]].map(([label, count]) => <article key={label}><span>{label}</span><strong>{number(count as number)}</strong></article>)}</div>
             <div className="summary-card"><span className="eyebrow">Overview of the current selection</span><p>{filtered.length ? `Across ${number(filtered.length)} selected reports, ${number(mapped)} relevant reports mention a mapped place. ${places.length ? "The most mentioned places are " + places.slice(0, 3).map(([name, count]) => name + " (" + number(count) + ")").join(", ") + "." : "No resolved places are present in this selection."}` : "No reports match these filters. Clear your search or reset the filters to explore the dataset."}</p><small>Computed from every matching report. Mention counts describe reporting activity, not flood severity or verified incidents.</small></div>
@@ -226,9 +226,9 @@ export default function App() {
               <div className="locations">{row.locations.map((loc, index) => <span key={index}>{loc.canonical_name ?? loc.mention} · {loc.status}</span>)}</div>{(row.classification_error || row.location_error) && <p className="error-text">{row.classification_error ?? row.location_error}</p>}<details><summary>Why this result?</summary><p>{row.classification?.reason ?? "Processing did not complete. Retry this report."}</p><small>{row.classification?.model_version} · ID: {row.tweet_id}</small></details>
             </article>)}</div>
           </>}
-          {tab === "map" && <div className="map-stage"><MapPanel tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} activeTweetId={activeTweetId} />
+          <div className="map-stage" hidden={tab !== "map"}><MapPanel key={loadVersion.current} processing={busy} tweets={filtered.filter(row => row.classification?.relevance === "relevant")} onEvidence={showEvidence} activeTweetId={activeTweetId} />
             {!results.length && <div className="map-start"><strong>No dataset loaded</strong><p>Upload a CSV to map its reports.</p><div><button className="primary" onClick={() => setIntakeOpen(true)}>Choose a CSV</button><button className="secondary" disabled={loading} onClick={loadSample}>Use supplied dataset</button></div><small>Sample: Alberta floods, 2013</small></div>}
-          </div>}
+          </div>
         </div>
       </section>
     </main><footer><span>{fileName || "No dataset"} · Mentioned places, not verified incidents</span>{locationMode === "service" && <a href="https://locationiq.com" target="_blank" rel="noopener noreferrer">Search by LocationIQ.com</a>}</footer>

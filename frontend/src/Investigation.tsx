@@ -32,13 +32,14 @@ export function briefingText(rows: ProcessedTweet[], scope: string, reviews: Rec
   ].join("\n");
 }
 interface Props {
+  processing: boolean;
   rows: ProcessedTweet[];
   scope: string;
   onPlace: (name: string) => void;
   reviews: Record<string, Review>;
   onReview: (id: string, review: Review) => void;
 }
-export default function Investigation({ rows, scope, onPlace, reviews, onReview }: Props) {
+export default function Investigation({ rows, scope, onPlace, reviews, onReview, processing }: Props) {
   const [kind, setKind] = useState<ReportKind | "all" | "unmapped">("all");
   const [active, setActive] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -80,7 +81,7 @@ export default function Investigation({ rows, scope, onPlace, reviews, onReview 
         {!visible.length && <p className="empty-state">No evidence matches this type within the current filters.</p>}
         {visible.length > limit && <button className="secondary" onClick={() => setLimit(limit + 30)}>Show 30 more ({visible.length - limit} remaining)</button>}
       </section>
-      {!reviewMode && <section className="investigation-map" aria-label="Linked community map"><MapPanel tweets={visible.filter(row => row.classification?.relevance === "relevant" && !reviews[row.tweet_id]?.locationDisputed)} onEvidence={id => setActive(id)} onPlace={onPlace} activeTweetId={current?.tweet_id} compact /></section>}
+      <section hidden={reviewMode} className="investigation-map" aria-label="Linked community map"><MapPanel processing={processing} tweets={visible.filter(row => row.classification?.relevance === "relevant" && !reviews[row.tweet_id]?.locationDisputed)} onEvidence={id => setActive(id)} onPlace={onPlace} activeTweetId={current?.tweet_id} compact /></section>
       <section className="evidence-detail" aria-label="Selected evidence">
         {current ? <>
           <span className="eyebrow">Source record {current.source_row}</span><h3>What does this report say?</h3>

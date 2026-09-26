@@ -1,29 +1,52 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { ProcessedTweet } from "../../shared/contracts";
 import { groupPlaces } from "./mapData";
 
-function FitPoints({ points }: { points: [number, number][] }) {
+function FitPoints({ points, processing }: { points: [number, number][]; processing: boolean }) {
   const map = useMap();
+  const positioned = useRef(false);
+  const [layoutVersion, setLayoutVersion] = useState(0);
   useEffect(() => {
+    const preserveView = () => { positioned.current = true; };
+    map.on("movestart", preserveView);
+    map.on("zoomstart", preserveView);
+    const observer = new ResizeObserver(() => {
+      if (map.getContainer().clientWidth) {
+        map.invalidateSize({ pan: false });
+        setLayoutVersion(value => value + 1);
+      }
+    });
+    observer.observe(map.getContainer());
+    return () => {
+      map.off("movestart", preserveView);
+      map.off("zoomstart", preserveView);
+      observer.disconnect();
+    };
+  }, [map]);
+  useEffect(() => {
+    if (!processing && points.length && !positioned.current && map.getContainer().clientWidth) {
+      positioned.current = true;
+      map.fitBounds(points, { padding: [40, 40], maxZoom: 11, animate: false });
+    }
+  }, [map, points, processing, layoutVersion]);
+  return <button className="fit-map" onClick={() => {
+    positioned.current = true;
     if (points.length) map.fitBounds(points, { padding: [40, 40], maxZoom: 11 });
-  }, [map, points]);
-  return <button className="fit-map" onClick={() => points.length ? map.fitBounds(points, { padding: [40, 40], maxZoom: 11 }) : map.setView([30, 0], 2)}>Fit places</button>;
+    else map.setView([30, 0], 2);
+  }}>Fit places</button>;
 }
-export default function MapPanel({ tweets, onEvidence, onPlace, activeTweetId, compact = false }: { tweets: ProcessedTweet[]; onEvidence: (id: string) => void; onPlace?: (name: string) => void; activeTweetId?: string; compact?: boolean }) {
+export default function MapPanel({ tweets, onEvidence, onPlace, activeTweetId, compact = false, processing = false }: { tweets: ProcessedTweet[]; onEvidence: (id: string) => void; onPlace?: (name: string) => void; activeTweetId?: string; compact?: boolean; processing?: boolean }) {
   const [tileError, setTileError] = useState(false);
   const groups = useMemo(() => groupPlaces(tweets), [tweets]);
-  const coordinates = useMemo(() => {
-    const selected = groups.filter(group => group.reports.some(row => row.tweet_id === activeTweetId));
-    return (selected.length ? selected : groups).map(group => group.coordinates);
-  }, [groups, activeTweetId]);
+  const coordinates = useMemo(() => groups.map(group => group.coordinates), [groups]);
   const mappedIds = new Set(groups.flatMap(group => group.reports.map(row => row.tweet_id)));
   const unmapped = tweets.filter(row => !mappedIds.has(row.tweet_id));
   return <>
     <p className="map-note">{groups.length} places · {mappedIds.size} mapped reports · Approximate locations</p>
     {tileError && <div role="status" className="alert warning">The background map could not load. Place names and source reports remain available below.</div>}
       <MapContainer center={coordinates[0] ?? [30, 0]} zoom={coordinates.length ? 6 : 2} className="map" scrollWheelZoom={true}>
-        <FitPoints points={coordinates} />
+        <FitPoints points={coordinates} processing={processing} />
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" eventHandlers={{ tileerror: () => setTileError(true) }} />
         {groups.map(group => <CircleMarker key={group.coordinates.join(",")} center={group.coordinates}
