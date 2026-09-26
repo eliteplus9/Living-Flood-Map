@@ -1,6 +1,10 @@
 # Classifier API handoff
 
-Status: implemented and tested locally; hosted URL pending deployment.
+Status: deployed and verified on Google Cloud Run.
+
+Base URL: https://living-flood-classifier-886360014271.us-central1.run.app
+
+Interactive API docs: https://living-flood-classifier-886360014271.us-central1.run.app/docs
 
 React → existing Cloudflare Worker → Python `/classify` → JSON results.
 The API runs the same classifier and model as the CLI. No LLM, external inference
@@ -110,8 +114,15 @@ Run one worker with at least 512 MiB memory; use 1 GiB for extra headroom at lim
 secret, `/health` readiness check, and automatic deployment off. Free Render
 services sleep after 15 minutes idle, so the first request can be slow. Check
 readiness before the demo. [Render limitations](https://render.com/docs/free).
-Cloud Run can also run the container; the selected account/project and billing
-must be settled before provisioning. No hosted URL is claimed by these files.
+The active deployment uses Cloud Run in `us-central1`, project `agent-s-12345`,
+service `living-flood-classifier`, revision `living-flood-classifier-00001-wtf`.
+It has 1 CPU, 1 GiB RAM, concurrency 1, minimum 0 / maximum 1 instance, and a
+120-second timeout. Scale-to-zero can add cold-start latency. The runtime service
+account only has access to its API-key secret. The key lives in Google Secret
+Manager as `flood-classifier-api-key` version 1 and is not included in the repo.
+The image was built successfully by Google Cloud Build using Dockerfile.classifier
+(copied to Dockerfile in a minimal staging directory containing API source/model only).
+Deployment contains API code from commit `8bda891`.
 
 ## Validation
 
@@ -120,3 +131,9 @@ preservation, empty input, duplicate IDs, limits, concurrency retry, and exact
 classifier parity. The supplied 8,024-row dataset returned 4,221 relevant and 456
 review rows in about 0.34 seconds through the local HTTP test client, identical to
 the Python output. This is local performance, not a hosted latency claim.
+
+Live verification: `/health` returned 200, requests without a key returned 401,
+and all 8,024 supplied tweets returned matching IDs, text, labels, categories, and
+review flags in 2.84 seconds end-to-end on a warm request. Scores differed by at
+most 1.12e-16 across platforms (floating-point rounding). This is a single observed
+request, not a latency guarantee.

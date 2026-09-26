@@ -88,4 +88,4 @@ Source: [CrisisLexT6](https://crisislex.org/data-collections.html), Olteanu, Cas
 
 ## HTTP API
 
-The Python classifier now has an authenticated `/classify` endpoint. See [CLASSIFIER_API.md](CLASSIFIER_API.md) for the request format, Worker integration, and deployment setup. Hosting is pending.
+The Python classifier now has an authenticated `/classify` endpoint. See [CLASSIFIER_API.md](CLASSIFIER_API.md) for the request format, Worker integration, and deployment setup. The API is deployed on Google Cloud Run; the live URL is in that guide.
