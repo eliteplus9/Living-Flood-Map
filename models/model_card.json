@@ -1,0 +1,70 @@
+{
+  "version": "crisislex-no-alberta-v1",
+  "source": "CrisisLexT6",
+  "sources": [
+    {
+      "event": "2012_Sandy_Hurricane",
+      "url": "https://raw.githubusercontent.com/sajao/CrisisLex/d67cddd51131dbb28842209014f67cffe359ff42/data/CrisisLexT6/2012_Sandy_Hurricane/2012_Sandy_Hurricane-ontopic_offtopic.csv",
+      "sha256": "0425c3e2421a3cd94a8a5628461fa4c0ca0e3448701138f54903fa781dcdbf01"
+    },
+    {
+      "event": "2013_Boston_Bombings",
+      "url": "https://raw.githubusercontent.com/sajao/CrisisLex/d67cddd51131dbb28842209014f67cffe359ff42/data/CrisisLexT6/2013_Boston_Bombings/2013_Boston_Bombings-ontopic_offtopic.csv",
+      "sha256": "eddbae6c7d3797fc155fffb339e436bec4eeec9331c57d33baff74acead2d33c"
+    },
+    {
+      "event": "2013_Oklahoma_Tornado",
+      "url": "https://raw.githubusercontent.com/sajao/CrisisLex/d67cddd51131dbb28842209014f67cffe359ff42/data/CrisisLexT6/2013_Oklahoma_Tornado/2013_Oklahoma_Tornado-ontopic_offtopic.csv",
+      "sha256": "3d54c4523364525838bb4207baafc592f4bb6ff7eb1371c0cfda400cfd0a1056"
+    },
+    {
+      "event": "2013_Queensland_Floods",
+      "url": "https://raw.githubusercontent.com/sajao/CrisisLex/d67cddd51131dbb28842209014f67cffe359ff42/data/CrisisLexT6/2013_Queensland_Floods/2013_Queensland_Floods-ontopic_offtopic.csv",
+      "sha256": "d4c209dc9caf9537f1bf7043074900e015bf85032940b8ec82d6e8f0a4305d2d"
+    },
+    {
+      "event": "2013_West_Texas_Explosion",
+      "url": "https://raw.githubusercontent.com/sajao/CrisisLex/d67cddd51131dbb28842209014f67cffe359ff42/data/CrisisLexT6/2013_West_Texas_Explosion/2013_West_Texas_Explosion-ontopic_offtopic.csv",
+      "sha256": "e340b82760c2f6d1b4af74af6bf35b3a8596c00859cd8fa123b1540f1319faf1"
+    }
+  ],
+  "excluded_event": "2013_Alberta_Floods",
+  "raw_rows": 50051,
+  "supplied_overlap_removed": 0,
+  "deduplicated_rows": 43875,
+  "train_rows": 35100,
+  "test_rows": 8775,
+  "threshold": 0.5,
+  "features": 50000,
+  "heldout_metrics": {
+    "accuracy": 0.9363,
+    "precision": 0.9382,
+    "recall": 0.931,
+    "f1": 0.9346
+  },
+  "cross_event_queensland_metrics": {
+    "accuracy": 0.7562,
+    "precision": 0.9388,
+    "recall": 0.4314,
+    "f1": 0.5912
+  },
+  "portable_probability_max_error": 5.551115123125783e-16,
+  "limitations": [
+    "English only; not calibrated on unseen events.",
+    "Generic disaster relevance, not verification or event identity.",
+    "No supplied-event labels fetched or used.",
+    "Final bundled model retains the 20% test split; test rows are not refit."
+  ],
+  "hybrid_heldout_metrics": {
+    "accuracy": 0.9364,
+    "precision": 0.9382,
+    "recall": 0.9312,
+    "f1": 0.9347
+  },
+  "original_keyword_heldout_metrics": {
+    "accuracy": 0.5861,
+    "precision": 0.9363,
+    "recall": 0.1646,
+    "f1": 0.2799
+  }
+}
