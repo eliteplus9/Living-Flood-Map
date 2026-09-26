@@ -85,3 +85,7 @@ python -m scripts.train_classifier
 Training downloads only the five named public events into ignored `data/training/`. The supplied dataset must be placed at `data/main_contestant.csv` to perform overlap exclusion. No supplied-event answer labels are downloaded. Raw datasets and classified outputs remain ignored by Git.
 
 Source: [CrisisLexT6](https://crisislex.org/data-collections.html), Olteanu, Castillo, Diaz and Vieweg (2014), *CrisisLex: A Lexicon for Collecting and Filtering Microblogged Communications in Crises*, ICWSM. The source repository's MIT notice is retained in `models/CRISISLEX_LICENSE.txt`.
+
+## HTTP API
+
+The Python classifier now has an authenticated `/classify` endpoint. See [CLASSIFIER_API.md](CLASSIFIER_API.md) for the request format, Worker integration, and deployment setup. Hosting is pending.

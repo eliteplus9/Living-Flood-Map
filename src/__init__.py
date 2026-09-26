@@ -1,14 +1,24 @@
-"""Living Flood Map core package.
+"""Living Flood Map core package with optional frontend dependencies loaded lazily."""
 
-This package exposes reusable functions for use by different frontends
-(Streamlit, FastAPI + React, etc.).
-"""
+from importlib import import_module
 
 __version__ = "0.1.0"
+_EXPORTS = {
+    "load_data": "data",
+    "read_uploaded_csv": "data",
+    "classify_tweets": "classify",
+    "extract_locations": "locations",
+    "geocode_locations": "geocode",
+    "create_map": "map_view",
+    "semantic_search": "rag",
+    "summarize_reports": "rag",
+}
+__all__ = list(_EXPORTS)
 
-from .data import load_data, read_uploaded_csv
-from .classify import classify_tweets
-from .locations import extract_locations
-from .geocode import geocode_locations
-from .map_view import create_map
-from .rag import semantic_search, summarize_reports
+
+def __getattr__(name):
+    if name not in _EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(f".{_EXPORTS[name]}", __name__), name)
+    globals()[name] = value
+    return value
