@@ -8,13 +8,15 @@ _EXPORTS = {
     "read_uploaded_csv": "data",
     "classify_tweets": "classify",
     "extract_locations": "locations",
+    "batch_extract_locations": "locations",
     "geocode_locations": "geocode",
+    "Geocoder": "geocode",
     "create_map": "map_view",
+    "create_map_from_rows": "map_view",
     "semantic_search": "rag",
     "summarize_reports": "rag",
 }
 __all__ = list(_EXPORTS)
-
 
 def __getattr__(name):
     if name not in _EXPORTS:

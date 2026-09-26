@@ -228,3 +228,4 @@ dist/
 *.tsbuildinfo
 test-results/
 playwright-report/
+demo/demo_map.html
