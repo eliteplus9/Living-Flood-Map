@@ -7,6 +7,16 @@ const config = { CLASSIFIER_URL: "https://classifier.example", CLASSIFIER_API_KE
 const valid = () => ({ results: [{ tweet_id: "source-1", source_row: 2, tweet: "  flood warning  ", relevance: "relevant", relevance_score: 0.91, category: "warning", reason: "Incident phrase", needs_review: true, classification_method: "incident_phrase", classifier_version: "test-v1" }], classifier_version: "test-v1" });
 
 describe("hosted classifier adapter", () => {
+  it("uses the private service binding without a bearer secret or public fetch", async () => {
+    const boundFetch = vi.fn(async (_url: URL, init: RequestInit) => {
+      expect(init.headers).toEqual({ "content-type": "application/json" });
+      return Response.json(valid());
+    });
+    const publicFetch = vi.fn();
+    const response = await classifyWithService(tweets, { CLASSIFIER: { fetch: boundFetch as typeof fetch } }, publicFetch);
+    expect(response.results[0].tweet_id).toBe("source-1");
+    expect(publicFetch).not.toHaveBeenCalled();
+  });
   it("sends only accepted fields with the Worker-held bearer key and preserves report IDs", async () => {
     const fetcher = vi.fn(async (_url: URL, init: RequestInit) => {
       expect(init.headers).toMatchObject({ authorization: "Bearer secret-for-test" });

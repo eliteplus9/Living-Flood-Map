@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "living-flood-map",
+  "account_id": "8e97b5747baec07cbf65de665eeb12ff",
+  "services": [{ "binding": "CLASSIFIER", "service": "living-flood-classifier" }],
+  "ratelimits": [{ "name": "API_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }],
   "main": "worker/index.ts",
   "compatibility_date": "2026-09-26",
   "workers_dev": true,

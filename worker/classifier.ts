@@ -1,6 +1,7 @@
 import type { BatchResponse, Classification, SourceTweet } from "../shared/contracts";
 
 export interface ClassifierConfig {
+  CLASSIFIER?: { fetch: typeof fetch };
   CLASSIFIER_URL?: string;
   CLASSIFIER_API_KEY?: string;
 }
@@ -25,23 +26,23 @@ export class ClassifierError extends Error {
 export async function classifyWithService(
   tweets: SourceTweet[], config: ClassifierConfig, fetcher: typeof fetch = fetch,
 ): Promise<BatchResponse<Classification>> {
-  if (!config.CLASSIFIER_URL || !config.CLASSIFIER_API_KEY) {
+  if (!config.CLASSIFIER && (!config.CLASSIFIER_URL || !config.CLASSIFIER_API_KEY)) {
     throw new ClassifierError("The classifier service is not configured. Add its URL and Worker secret, then retry.", 503);
   }
   let endpoint: URL;
   try {
-    endpoint = new URL("/classify", config.CLASSIFIER_URL);
+    endpoint = new URL("/classify", config.CLASSIFIER ? "https://classifier.internal" : config.CLASSIFIER_URL);
     if (endpoint.protocol !== "https:") throw new Error("HTTPS required");
   } catch {
     throw new ClassifierError("The classifier service URL is invalid.", 503);
   }
   let upstream: Response;
   try {
-    upstream = await fetcher(endpoint, {
+    upstream = await (config.CLASSIFIER ? config.CLASSIFIER.fetch.bind(config.CLASSIFIER) : fetcher)(config.CLASSIFIER ? endpoint.toString() : endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${config.CLASSIFIER_API_KEY}` },
+      headers: { "content-type": "application/json", ...(config.CLASSIFIER ? {} : { authorization: `Bearer ${config.CLASSIFIER_API_KEY}` }) },
       body: JSON.stringify({ tweets: tweets.map(({ tweet_id, tweet, source_row }) => ({ tweet_id, tweet, source_row })) }),
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(90_000),
     });
   } catch {

@@ -227,6 +227,13 @@ dist/
 .wrangler/
 .dev.vars
 .dev.vars.*
+cloudflare-classifier/src/vendor/
+cloudflare-classifier/.venv-workers/
+cloudflare-classifier/python_modules/
+cloudflare-classifier/src/
+cloudflare-classifier/models/
+cloudflare-classifier/runtime/src/
+cloudflare-classifier/runtime/models/
 *.tsbuildinfo
 test-results/
 playwright-report/

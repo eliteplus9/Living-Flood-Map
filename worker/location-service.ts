@@ -27,7 +27,7 @@ export async function locateWithService(
   let upstream: Response;
   try {
     upstream = await fetcher(endpoint, {
-      method: "POST", redirect: "error",
+      method: "POST", redirect: "manual",
       headers: { "content-type": "application/json", authorization: `Bearer ${config.LOCATION_API_KEY}` },
       body: JSON.stringify({
         tweets: tweets.map(({ tweet_id, tweet, source_row }) => ({ tweet_id, tweet, source_row })),

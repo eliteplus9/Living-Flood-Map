@@ -1,0 +1,13 @@
+{
+  "name": "living-flood-classifier",
+  "account_id": "8e97b5747baec07cbf65de665eeb12ff",
+  "main": "runtime/classifier_worker.py",
+  "compatibility_date": "2026-09-26",
+  "compatibility_flags": ["python_workers"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "limits": { "cpu_ms": 30000 },
+  "rules": [
+    { "type": "Data", "globs": ["**/*.gz"], "fallthrough": true }
+  ]
+}

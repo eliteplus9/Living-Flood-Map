@@ -9,7 +9,10 @@ import type {
 import { ClassifierError, classifyWithService, type ClassifierConfig } from "./classifier";
 import { LocationServiceError, locateWithService, type LocationConfig } from "./location-service";
 
-interface Env extends ClassifierConfig, LocationConfig { ASSETS: Fetcher }
+interface Env extends ClassifierConfig, LocationConfig {
+  ASSETS: Fetcher;
+  API_RATE_LIMIT?: { limit(options: { key: string }): Promise<{ success: boolean }> };
+}
 
 const MODEL_VERSION = "baseline-rules-2026-09-26";
 const FLOOD_TERMS = /\b(flood(?:s|ed|ing)?|evacuat\w*|sandbag\w*|washed out|disaster|emergency|rescu\w*|relief)\b|#(?:yycfloods?|abfloods?|mhflood|calgaryflood)\b/i;
@@ -107,16 +110,19 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
     if (request.method === "GET" && url.pathname === "/api/health") {
-      const classifier_mode = env.CLASSIFIER_URL && env.CLASSIFIER_API_KEY ? "service" : env.CLASSIFIER_URL || env.CLASSIFIER_API_KEY ? "unconfigured" : "preview";
+      const classifier_mode = env.CLASSIFIER || env.CLASSIFIER_URL && env.CLASSIFIER_API_KEY ? "service" : env.CLASSIFIER_URL || env.CLASSIFIER_API_KEY ? "unconfigured" : "preview";
       const location_mode = env.LOCATION_URL && env.LOCATION_API_KEY ? "service" : env.LOCATION_URL || env.LOCATION_API_KEY ? "unconfigured" : "preview";
       return json({ ok: true, service: "living-flood-map", classifier_mode, location_mode, model_version: classifier_mode === "preview" ? MODEL_VERSION : undefined });
     }
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
+    if (env.API_RATE_LIMIT && !(await env.API_RATE_LIMIT.limit({ key: request.headers.get("CF-Connecting-IP") || "unknown" })).success) {
+      return json({ error: "Too many requests. Please retry shortly." }, 429);
+    }
     try {
       if (!["/api/classify", "/api/locations", "/api/summarize"].includes(url.pathname)) return json({ error: "API route not found." }, 404);
       const body = await batchRequest(request, url.pathname === "/api/summarize" ? 200 : url.pathname === "/api/classify" ? 500 : 50);
       if (url.pathname === "/api/classify") {
-        if (env.CLASSIFIER_URL || env.CLASSIFIER_API_KEY) {
+        if (env.CLASSIFIER || env.CLASSIFIER_URL || env.CLASSIFIER_API_KEY) {
           return json(await classifyWithService(body.tweets, env));
         }
         const response: BatchResponse<Classification> = { results: body.tweets.map(classify), warnings: [], model_version: MODEL_VERSION };

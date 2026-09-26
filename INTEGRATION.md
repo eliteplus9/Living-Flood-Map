@@ -15,6 +15,12 @@ Every result must preserve `tweet_id`. Do not join by tweet text because duplica
 
 ## Classification integration
 
+The eliteplus9 deployment now uses a private Cloudflare Python classifier Worker
+through the `CLASSIFIER` service binding. It bundles the original model and has
+no public workers.dev or preview URL. No Google Cloud key is needed on this path.
+See `cloudflare-classifier/README.md` for the reproducible build. The URL/key
+adapter below remains available for alternate deployments.
+
 The UI calls `POST /api/classify` in batches of 400 `SourceTweet` records; the Worker accepts up to 500. It expects `BatchResponse<Classification>`.
 
 When both `CLASSIFIER_URL` and `CLASSIFIER_API_KEY` are set, the Worker calls Edward's hosted API and validates IDs, original tweet text, row numbers, and response fields before adapting results. With neither setting, it uses the labelled local preview. Partial configuration and upstream failures are visible errors, never silent preview fallbacks. Keep the key in a Worker secret or local git-ignored `.dev.vars` file.
