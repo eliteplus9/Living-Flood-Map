@@ -17,8 +17,9 @@ from dotenv import load_dotenv
 # missing. The key itself is never printed or logged.
 load_dotenv()
 _CARTO_KEY = os.getenv("CARTO_BASEMAP_KEY")
-if not _CARTO_KEY:
-    raise RuntimeError("CARTO_BASEMAP_KEY is not set. Set it in your .env or environment to use CartoDB basemaps.")
+# Do not raise at import time if CARTO key is missing; only require it when
+# rendering a CARTO-backed TileLayer. This prevents import-time failures in
+# environments where the key is intentionally not set (e.g. CI, tests).
 
 try:
     from folium.plugins import MarkerCluster
@@ -80,14 +81,14 @@ def create_map_from_rows(rows: Iterable[dict], start_location: Optional[List[flo
     # the OpenStreetMap layer automatically (which can produce 403s).
     m = folium.Map(location=center, zoom_start=zoom_start, tiles=None)
 
-    # Explicitly add CartoDB Positron tile layer including the CARTO key
-    # from the environment. We intentionally do not log or print the key.
-    tile_url = f"https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}{{r}}.png?key={_CARTO_KEY}"
-    folium.TileLayer(
-        tiles=tile_url,
-        attr="© OpenStreetMap contributors © CARTO",
-        name="CartoDB Positron",
-    ).add_to(m)
+    # Add a basemap. Prefer CARTO Positron when a key is available, otherwise
+    # fall back to standard OpenStreetMap tiles so importing the module does
+    # not fail when no CARTO key is present.
+    if _CARTO_KEY:
+        tile_url = f"https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}{{r}}.png?key={_CARTO_KEY}"
+        folium.TileLayer(tiles=tile_url, attr="© OpenStreetMap contributors © CARTO", name="CartoDB Positron").add_to(m)
+    else:
+        folium.TileLayer(tiles="OpenStreetMap", name="OpenStreetMap").add_to(m)
 
     if _HAS_CLUSTER:
         cluster = MarkerCluster()
@@ -111,4 +112,14 @@ def create_map_from_rows(rows: Iterable[dict], start_location: Optional[List[flo
     return m
 
 
-__all__ = ["create_map_from_rows"]
+def create_map(rows: Iterable[dict], start_location: Optional[List[float]] = None, zoom_start: int = 6) -> folium.Map:
+    """Compatibility wrapper expected by older `app.py`.
+
+    Accepts an iterable of geocoded rows (dictionaries) and returns a folium.Map.
+    This mirrors the earlier `create_map` signature so `from src.map_view import create_map`
+    continues to work for existing UI code.
+    """
+    return create_map_from_rows(rows, start_location=start_location, zoom_start=zoom_start)
+
+
+__all__ = ["create_map_from_rows", "create_map"]

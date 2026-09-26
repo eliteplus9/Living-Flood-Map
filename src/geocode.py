@@ -72,7 +72,7 @@ class Geocoder:
             self._cache[key] = None
             return None
 
-    def choose_candidate(self, name: str, candidates: List[Dict[str, Any]], context_coords: Optional[List[Tuple[float, float]]] = None, prefer_country: str = 'CA') -> Optional[Dict[str, Any]]:
+    def choose_candidate(self, name: str, candidates: List[Dict[str, Any]], context_coords: Optional[List[Tuple[float, float]]] = None, prefer_country: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Pick the best candidate using simple heuristics.
 
         - Prefer candidates with the `prefer_country` in display_name if present.
@@ -86,7 +86,8 @@ class Geocoder:
         preferred = []
         for c in candidates:
             dn = (c.get('display_name') or '').lower()
-            if 'canada' in dn or ', on' in dn or ', ontario' in dn or prefer_country.lower() in dn:
+            # Only apply a country bias when caller explicitly provided one.
+            if prefer_country and prefer_country.lower() in dn:
                 preferred.append(c)
         pool = preferred or candidates
 
@@ -136,3 +137,37 @@ class Geocoder:
 
 
 __all__ = ["Geocoder"]
+
+
+def geocode_locations(locations: Iterable[str], geocoder: Optional[Geocoder] = None, prefer_country: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Compatibility wrapper to geocode a sequence of location name strings.
+
+    Returns a list of dict rows compatible with the mapping helper used by
+    the Streamlit app: each row contains `tweet`, `location_name`, `latitude`,
+    and `longitude`. Unresolved names are omitted.
+    """
+    g = geocoder or Geocoder()
+    rows: List[Dict[str, Any]] = []
+    if not locations:
+        return rows
+
+    for name in locations:
+        if not name:
+            continue
+        # perform country-biased lookup only when prefer_country provided
+        country_codes = prefer_country.lower() if prefer_country else None
+        candidates = g.geocode_candidates(name, country_codes=country_codes) or []
+        chosen = g.choose_candidate(name, candidates, context_coords=None, prefer_country=prefer_country)
+        if chosen:
+            rows.append({
+                "tweet": "",
+                "location_name": chosen.get("display_name") or name,
+                "latitude": chosen.get("lat"),
+                "longitude": chosen.get("lon"),
+            })
+
+    return rows
+
+
+# Export the backwards-compatible wrapper
+__all__.append("geocode_locations")

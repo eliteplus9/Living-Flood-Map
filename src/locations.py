@@ -55,11 +55,17 @@ def _default_extractor(text: str) -> List[str]:
     return uniq
 
 
-def extract_locations(text: str, extractor: Extractor | None = None) -> List[str]:
-    """Extract zero-or-more location names from a single text string.
+def extract_locations(text: str | Iterable[str], extractor: Extractor | None = None) -> List[str]:
+    """Extract zero-or-more location names.
+
+    This function is backwards-compatible with the older `app.py` call
+    pattern which passes a list of tweet strings. It accepts either a
+    single text string or an iterable of strings. When given an iterable
+    it returns a flat list of mentions found across the inputs. When
+    given a single string it behaves like the original function.
 
     Args:
-        text: The input text (tweet).
+        text: The input text (single tweet) or an iterable/list of tweets.
         extractor: Optional callable(text)->List[str]. If not provided,
             the bundled heuristic `_default_extractor` is used.
 
@@ -68,7 +74,19 @@ def extract_locations(text: str, extractor: Extractor | None = None) -> List[str
     """
     fn = extractor or _default_extractor
     try:
-        return fn(text) or []
+        # If caller passed an iterable of tweets (list), run extractor on each
+        # and return a flattened list of mentions — this preserves previous
+        # app.py behaviour where `extract_locations(samples)` returned a list.
+        if isinstance(text, (list, tuple)) or (hasattr(text, '__iter__') and not isinstance(text, str)):
+            mentions: List[str] = []
+            for t in text:
+                try:
+                    mentions.extend(fn(str(t)) or [])
+                except Exception:
+                    continue
+            return mentions
+        # single-string path
+        return fn(str(text)) or []
     except Exception:
         # Ensure failures in a custom extractor don't crash the pipeline
         return []
@@ -128,7 +146,7 @@ def _clean_mention(mention: str) -> str:
     return m
 
 
-def canonicalize_mentions(df_mentions: pd.DataFrame, geocoder: Optional[Geocoder] = None, prefer_country: str = 'CA') -> pd.DataFrame:
+def canonicalize_mentions(df_mentions: pd.DataFrame, geocoder: Optional[Geocoder] = None, prefer_country: Optional[str] = None) -> pd.DataFrame:
     """Resolve mentions to canonical names and coordinates.
 
     Input: DataFrame with columns `tweet_id`, `tweet`, `mention`.
@@ -151,11 +169,14 @@ def canonicalize_mentions(df_mentions: pd.DataFrame, geocoder: Optional[Geocoder
     unique = df['mention'].dropna().unique().tolist()
     candidates_map = {}
     for name in unique:
-        cand_ca = geocoder.geocode_candidates(name, country_codes='ca')
-        if cand_ca:
-            candidates_map[name] = cand_ca
-        else:
-            candidates_map[name] = geocoder.geocode_candidates(name, country_codes=None) or []
+        # If a prefer_country was supplied, bias the lookup to that country.
+        # Otherwise perform a global lookup.
+        if prefer_country:
+            cand_pref = geocoder.geocode_candidates(name, country_codes=prefer_country.lower())
+            if cand_pref:
+                candidates_map[name] = cand_pref
+                continue
+        candidates_map[name] = geocoder.geocode_candidates(name, country_codes=None) or []
 
     # Preselect a top candidate per mention (first candidate) to build context coords
     preselected_coords = {}
